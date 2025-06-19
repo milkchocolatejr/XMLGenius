@@ -1,19 +1,22 @@
-runbasic:	
-	gcc brain.c -o brain.o
-	./brain.o
-help: 
+help: ./brain.c
 	gcc brain.c -o brain.o
 	./brain.o help
 
-helpTest:
+invalidate: ./brain.c ./samples/invalid.xml
 	gcc brain.c -o brain.o
-	./brain.o help please!
+	./brain.o validate -p samples/invalid.xml
 
-validate:
+validate: ./brain.c samples/valid.xml
 	gcc brain.c -o brain.o
-	./brain.o validate -p myPath.txt
+	./brain.o validate -p samples/valid.xml
 
-validateTest:
+invalidated: ./brain.c ./samples/invalid.xml
 	gcc brain.c -o brain.o
-	./brain.o validate
+	./brain.o validate -p samples/invalid.xml -d
+
+validated: ./brain.c samples/valid.xml
+	gcc brain.c -o brain.o
+	./brain.o validate -p samples/valid.xml -d
+
+
 
