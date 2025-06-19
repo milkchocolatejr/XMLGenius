@@ -17,6 +17,30 @@ void help(){
     if(DEBUG){
         printf("Help called!\n");
     }
+    printf("These are the commands you can run!\n");
+    printf("help\nvalidate\n");
+}
+
+int add(char* myPath){
+    if(DEBUG){
+        printf("Add called on: %s", myPath);
+    }
+
+    if(validate(myPath) == 0){
+        return 0;
+    }
+
+    int fd = open(myPath, O_RDONLY, 0644);
+
+    if(fd == -1){
+        if(DEBUG){
+            printf("There was an error opening your file. \n");
+            printf("Most likely, your file does not exist.\n");
+        }
+        
+        return 0;
+    }
+
 }
 
 int validate(char* myPath){
@@ -120,7 +144,9 @@ int validate(char* myPath){
 }
 
 int main(int argc, char *argv[]){
-    printf("Welcome to the brains of the operation!\n");
+    if(DEBUG){
+        printf("Welcome to the brains of the operation!\n");
+    }
     
     if(argc < 2){
         if(DEBUG){
@@ -136,14 +162,14 @@ int main(int argc, char *argv[]){
     }
     if(strcmp(command, "help") == 0){
         if(argc != 2){
-            printf("For help, please use: './brain.o help'.\n");
+            printf("For help, please use: './brain.exe help'.\n");
             return 2;
         }
         help();
     }
     else if(strcmp(command, "validate") == 0){
         if(argc < 4){
-            printf("To validate, please use: './brain.o validate -p <path>'\n");
+            printf("To validate, please use: './brain.exe validate -p <path>'\n");
             return 2;
         }
         int status = validate(argv[3]);
@@ -156,6 +182,13 @@ int main(int argc, char *argv[]){
         if(status == 1){
             printf("    VALID XML DOCUMENT\n");
         }
+    }
+    else if(strcmp(command, "add") == 0){
+        if(argc < 6){
+            printf("To add, please use: './brain.exe add -p <path> <parentName> <childName> -v <value>");
+            return 2;
+        }
+        int status = add(argv[3]);
     }
 
     return 0;
