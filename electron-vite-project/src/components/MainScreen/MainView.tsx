@@ -2,10 +2,15 @@ import { useState } from 'react';
 import FileInput from './FileInput';
 import ActionCarousel from './ActionCarousel';
 import styles from './styles/MainView.module.css';
+import DisplayView from '../VizualizeScreen/DisplayView';
 
 const MainView = () => {
     const [filePath, setFilePath] = useState('');
     const [selectionType, setSelectionType] = useState<'file' | 'folder' | null>(null);
+    const [showDisplayView, setShowDisplayView] = useState(false);
+    const [parsedXmlData, setParsedXmlData] = useState<any>(null);
+    const [selectedAction, setSelectedAction] = useState<string | null>(null);
+    const isButtonDisabled = !filePath || !selectedAction;
 
 
     const handleSelection = (selection: { path: string; type: 'file' | 'folder' } | null) => {
@@ -54,16 +59,35 @@ const MainView = () => {
                 // TODO: Show an error message to the user in the UI
             }
         }
-        else if (selectedAction === 'display') {
-            window.location.href = '.VizualizeScreen/MainView';
-            
+        if (selectedAction === 'display') {
+            console.log(`Displaying XML for path: ${filePath}`);
+            // TODO: Parse the XML file here and set the parsed data
+            // For now, using a placeholder structure
+            const mockParsedData = {
+                name: 'root',
+                children: [
+                    { name: 'child1', attributes: {} },
+                    { name: 'child2', attributes: {} }
+                ]
+            };
+            setParsedXmlData(mockParsedData);
+            setShowDisplayView(true);
         }
-
     };
 
-    const [selectedAction, setSelectedAction] = useState<string | null>(null);
-    const isButtonDisabled = !filePath || !selectedAction;
 
+    // If we should show the display view, render the DisplayView
+    if (showDisplayView && parsedXmlData) {
+        return (
+            <DisplayView
+                data={parsedXmlData}
+                onGoBack={() => {
+                    setShowDisplayView(false);
+                    setParsedXmlData(null);
+                }}
+            />
+        );
+    }
 
     return (
         <div style={{ padding: '2rem' }}>

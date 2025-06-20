@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import styles from './styles/FileInput.module.css';
 
 declare global {
-    interface Window {
-        api: {
-            openFile: () => Promise<{ path: string; type: 'file' | 'folder' } | null>;
-        };
-    }
+  interface Window {
+    api: {
+      openFile: () => Promise<{ path: string; type: 'file' | 'folder' } | null>;
+      // Add this new line
+      parseXML: (filePath: string) => Promise<{ status: 'success', data: any } | { status: 'error', message: string }>;
+    };
+  }
 }
 
 interface FileInputProps {

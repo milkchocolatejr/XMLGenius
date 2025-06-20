@@ -27,3 +27,9 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 contextBridge.exposeInMainWorld('api', {
   openFile: () => ipcRenderer.invoke('dialog:openFile'),
 });
+
+contextBridge.exposeInMainWorld('api', {
+  openFile: () => ipcRenderer.invoke('dialog:openFile'),
+  // Add this new line
+  parseXML: (filePath: string) => ipcRenderer.invoke('xml:parse', filePath),
+});
