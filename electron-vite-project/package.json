@@ -36,5 +36,18 @@
     "vite-plugin-electron": "^0.28.6",
     "vite-plugin-electron-renderer": "^0.14.5"
   },
-  "main": "dist-electron/main.js"
+  "main": "dist-electron/main.js",
+  "build": {
+  "appId": "com.xmlgenius.app",
+  "productName": "XML Genius",
+  "files": [
+    "dist-electron/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "../backend/dist/xml_genius_backend",
+      "to": "backend/xml_genius_backend"
+    }
+  ]
+}
 }
