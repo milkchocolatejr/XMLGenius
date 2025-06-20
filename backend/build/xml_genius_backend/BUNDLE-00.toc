@@ -1,0 +1,3 @@
+([('xml_genius_backend',
+   '/Users/nishanthgandhe/Documents/GitHub/XMLGenius/backend/dist/xml_genius_backend',
+   'EXECUTABLE')],)

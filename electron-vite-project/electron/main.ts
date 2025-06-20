@@ -5,6 +5,29 @@ import path from 'node:path'
 import {ipcMain, dialog } from 'electron'
 import fs from 'fs';
 import { XMLParser } from 'fast-xml-parser';
+import { spawn, ChildProcessWithoutNullStreams } from 'child_process'; // <-- Update this import
+
+const isDev = !app.isPackaged;
+let pythonBackend: ChildProcessWithoutNullStreams | null = null;
+
+function runBackend() {
+  // Determine the path to the executable based on dev or prod
+  const backendPath = isDev
+    ? path.join(__dirname, '../../backend/dist/xml_genius_backend') // Path in development
+    : path.join(process.resourcesPath, 'backend/xml_genius_backend'); // Path in production
+
+  console.log(`Attempting to run backend at: ${backendPath}`);
+
+  pythonBackend = spawn(backendPath);
+
+  pythonBackend.stdout.on('data', (data) => {
+    console.log(`Python Backend: ${data.toString()}`);
+  });
+
+  pythonBackend.stderr.on('data', (data) => {
+    console.error(`Python Backend Error: ${data.toString()}`);
+  });
+}
 
 
 // const require = createRequire(import.meta.url)
@@ -64,7 +87,7 @@ ipcMain.handle('dialog:openFile', async () => {
   return { path, type };
 });
 
-ipcMain.handle('xml:parse', async (event, filePath) => {
+ipcMain.handle('xml:parse', async (_event, filePath) => {
   try {
     // Read the file content from the path provided by the frontend
     const xmlData = fs.readFileSync(filePath, 'utf-8');
@@ -93,7 +116,7 @@ ipcMain.handle('xml:parse', async (event, filePath) => {
   }
 });
 
-ipcMain.handle('file:read', async (event, filePath) => {
+ipcMain.handle('file:read', async (_event, filePath) => {
   try {
     return fs.readFileSync(filePath, 'utf-8');
   } catch (error) {
@@ -103,7 +126,7 @@ ipcMain.handle('file:read', async (event, filePath) => {
 });
 
 // Handler to write new content to a file
-ipcMain.handle('file:write', async (event, filePath, content) => {
+ipcMain.handle('file:write', async (_event, filePath, content) => {
   try {
     fs.writeFileSync(filePath, content, 'utf-8');
     return { status: 'success' };
@@ -127,4 +150,15 @@ app.on('activate', () => {
   }
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  runBackend();
+  createWindow();
+});
+
+app.on('will-quit', () => {
+  if (pythonBackend) {
+    console.log('Killing Python backend...');
+    pythonBackend.kill();
+    pythonBackend = null;
+  }
+});

@@ -1,1318 +1,877 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
-import fs from "fs";
-const nameStartChar = ":A-Za-z_\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
-const nameChar = nameStartChar + "\\-.\\d\\u00B7\\u0300-\\u036F\\u203F-\\u2040";
-const nameRegexp = "[" + nameStartChar + "][" + nameChar + "]*";
-const regexName = new RegExp("^" + nameRegexp + "$");
-function getAllMatches(string, regex) {
-  const matches = [];
-  let match = regex.exec(string);
-  while (match) {
-    const allmatches = [];
-    allmatches.startIndex = regex.lastIndex - match[0].length;
-    const len = match.length;
-    for (let index = 0; index < len; index++) {
-      allmatches.push(match[index]);
-    }
-    matches.push(allmatches);
-    match = regex.exec(string);
+import { app as P, BrowserWindow as x, ipcMain as v, dialog as Q } from "electron";
+import { fileURLToPath as z } from "node:url";
+import N from "node:path";
+import O from "fs";
+import { spawn as H } from "child_process";
+const W = ":A-Za-z_\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD", D = W + "\\-.\\d\\u00B7\\u0300-\\u036F\\u203F-\\u2040", ee = "[" + W + "][" + D + "]*", te = new RegExp("^" + ee + "$");
+function q(e, t) {
+  const n = [];
+  let s = t.exec(e);
+  for (; s; ) {
+    const i = [];
+    i.startIndex = t.lastIndex - s[0].length;
+    const r = s.length;
+    for (let f = 0; f < r; f++)
+      i.push(s[f]);
+    n.push(i), s = t.exec(e);
   }
-  return matches;
+  return n;
 }
-const isName = function(string) {
-  const match = regexName.exec(string);
-  return !(match === null || typeof match === "undefined");
+const R = function(e) {
+  const t = te.exec(e);
+  return !(t === null || typeof t > "u");
 };
-function isExist(v) {
-  return typeof v !== "undefined";
+function ne(e) {
+  return typeof e < "u";
 }
-const defaultOptions$1 = {
-  allowBooleanAttributes: false,
+const re = {
+  allowBooleanAttributes: !1,
   //A tag can have attributes without any value
   unpairedTags: []
 };
-function validate(xmlData, options) {
-  options = Object.assign({}, defaultOptions$1, options);
-  const tags = [];
-  let tagFound = false;
-  let reachedRoot = false;
-  if (xmlData[0] === "\uFEFF") {
-    xmlData = xmlData.substr(1);
-  }
-  for (let i = 0; i < xmlData.length; i++) {
-    if (xmlData[i] === "<" && xmlData[i + 1] === "?") {
-      i += 2;
-      i = readPI(xmlData, i);
-      if (i.err) return i;
-    } else if (xmlData[i] === "<") {
-      let tagStartPos = i;
-      i++;
-      if (xmlData[i] === "!") {
-        i = readCommentAndCDATA(xmlData, i);
+function se(e, t) {
+  t = Object.assign({}, re, t);
+  const n = [];
+  let s = !1, i = !1;
+  e[0] === "\uFEFF" && (e = e.substr(1));
+  for (let r = 0; r < e.length; r++)
+    if (e[r] === "<" && e[r + 1] === "?") {
+      if (r += 2, r = Y(e, r), r.err) return r;
+    } else if (e[r] === "<") {
+      let f = r;
+      if (r++, e[r] === "!") {
+        r = X(e, r);
         continue;
       } else {
-        let closingTag = false;
-        if (xmlData[i] === "/") {
-          closingTag = true;
-          i++;
+        let l = !1;
+        e[r] === "/" && (l = !0, r++);
+        let o = "";
+        for (; r < e.length && e[r] !== ">" && e[r] !== " " && e[r] !== "	" && e[r] !== `
+` && e[r] !== "\r"; r++)
+          o += e[r];
+        if (o = o.trim(), o[o.length - 1] === "/" && (o = o.substring(0, o.length - 1), r--), !de(o)) {
+          let c;
+          return o.trim().length === 0 ? c = "Invalid space after '<'." : c = "Tag '" + o + "' is an invalid name.", d("InvalidTag", c, g(e, r));
         }
-        let tagName = "";
-        for (; i < xmlData.length && xmlData[i] !== ">" && xmlData[i] !== " " && xmlData[i] !== "	" && xmlData[i] !== "\n" && xmlData[i] !== "\r"; i++) {
-          tagName += xmlData[i];
-        }
-        tagName = tagName.trim();
-        if (tagName[tagName.length - 1] === "/") {
-          tagName = tagName.substring(0, tagName.length - 1);
-          i--;
-        }
-        if (!validateTagName(tagName)) {
-          let msg;
-          if (tagName.trim().length === 0) {
-            msg = "Invalid space after '<'.";
-          } else {
-            msg = "Tag '" + tagName + "' is an invalid name.";
-          }
-          return getErrorObject("InvalidTag", msg, getLineNumberForPosition(xmlData, i));
-        }
-        const result = readAttributeStr(xmlData, i);
-        if (result === false) {
-          return getErrorObject("InvalidAttr", "Attributes for '" + tagName + "' have open quote.", getLineNumberForPosition(xmlData, i));
-        }
-        let attrStr = result.value;
-        i = result.index;
-        if (attrStr[attrStr.length - 1] === "/") {
-          const attrStrStart = i - attrStr.length;
-          attrStr = attrStr.substring(0, attrStr.length - 1);
-          const isValid = validateAttributeString(attrStr, options);
-          if (isValid === true) {
-            tagFound = true;
-          } else {
-            return getErrorObject(isValid.err.code, isValid.err.msg, getLineNumberForPosition(xmlData, attrStrStart + isValid.err.line));
-          }
-        } else if (closingTag) {
-          if (!result.tagClosed) {
-            return getErrorObject("InvalidTag", "Closing tag '" + tagName + "' doesn't have proper closing.", getLineNumberForPosition(xmlData, i));
-          } else if (attrStr.trim().length > 0) {
-            return getErrorObject("InvalidTag", "Closing tag '" + tagName + "' can't have attributes or invalid starting.", getLineNumberForPosition(xmlData, tagStartPos));
-          } else if (tags.length === 0) {
-            return getErrorObject("InvalidTag", "Closing tag '" + tagName + "' has not been opened.", getLineNumberForPosition(xmlData, tagStartPos));
-          } else {
-            const otg = tags.pop();
-            if (tagName !== otg.tagName) {
-              let openPos = getLineNumberForPosition(xmlData, otg.tagStartPos);
-              return getErrorObject(
-                "InvalidTag",
-                "Expected closing tag '" + otg.tagName + "' (opened in line " + openPos.line + ", col " + openPos.col + ") instead of closing tag '" + tagName + "'.",
-                getLineNumberForPosition(xmlData, tagStartPos)
-              );
+        const a = le(e, r);
+        if (a === !1)
+          return d("InvalidAttr", "Attributes for '" + o + "' have open quote.", g(e, r));
+        let u = a.value;
+        if (r = a.index, u[u.length - 1] === "/") {
+          const c = r - u.length;
+          u = u.substring(0, u.length - 1);
+          const p = Z(u, t);
+          if (p === !0)
+            s = !0;
+          else
+            return d(p.err.code, p.err.msg, g(e, c + p.err.line));
+        } else if (l)
+          if (a.tagClosed) {
+            if (u.trim().length > 0)
+              return d("InvalidTag", "Closing tag '" + o + "' can't have attributes or invalid starting.", g(e, f));
+            if (n.length === 0)
+              return d("InvalidTag", "Closing tag '" + o + "' has not been opened.", g(e, f));
+            {
+              const c = n.pop();
+              if (o !== c.tagName) {
+                let p = g(e, c.tagStartPos);
+                return d(
+                  "InvalidTag",
+                  "Expected closing tag '" + c.tagName + "' (opened in line " + p.line + ", col " + p.col + ") instead of closing tag '" + o + "'.",
+                  g(e, f)
+                );
+              }
+              n.length == 0 && (i = !0);
             }
-            if (tags.length == 0) {
-              reachedRoot = true;
-            }
-          }
-        } else {
-          const isValid = validateAttributeString(attrStr, options);
-          if (isValid !== true) {
-            return getErrorObject(isValid.err.code, isValid.err.msg, getLineNumberForPosition(xmlData, i - attrStr.length + isValid.err.line));
-          }
-          if (reachedRoot === true) {
-            return getErrorObject("InvalidXml", "Multiple possible root nodes found.", getLineNumberForPosition(xmlData, i));
-          } else if (options.unpairedTags.indexOf(tagName) !== -1) ;
-          else {
-            tags.push({ tagName, tagStartPos });
-          }
-          tagFound = true;
+          } else return d("InvalidTag", "Closing tag '" + o + "' doesn't have proper closing.", g(e, r));
+        else {
+          const c = Z(u, t);
+          if (c !== !0)
+            return d(c.err.code, c.err.msg, g(e, r - u.length + c.err.line));
+          if (i === !0)
+            return d("InvalidXml", "Multiple possible root nodes found.", g(e, r));
+          t.unpairedTags.indexOf(o) !== -1 || n.push({ tagName: o, tagStartPos: f }), s = !0;
         }
-        for (i++; i < xmlData.length; i++) {
-          if (xmlData[i] === "<") {
-            if (xmlData[i + 1] === "!") {
-              i++;
-              i = readCommentAndCDATA(xmlData, i);
+        for (r++; r < e.length; r++)
+          if (e[r] === "<")
+            if (e[r + 1] === "!") {
+              r++, r = X(e, r);
               continue;
-            } else if (xmlData[i + 1] === "?") {
-              i = readPI(xmlData, ++i);
-              if (i.err) return i;
-            } else {
+            } else if (e[r + 1] === "?") {
+              if (r = Y(e, ++r), r.err) return r;
+            } else
               break;
-            }
-          } else if (xmlData[i] === "&") {
-            const afterAmp = validateAmpersand(xmlData, i);
-            if (afterAmp == -1)
-              return getErrorObject("InvalidChar", "char '&' is not expected.", getLineNumberForPosition(xmlData, i));
-            i = afterAmp;
-          } else {
-            if (reachedRoot === true && !isWhiteSpace(xmlData[i])) {
-              return getErrorObject("InvalidXml", "Extra text at the end", getLineNumberForPosition(xmlData, i));
-            }
-          }
-        }
-        if (xmlData[i] === "<") {
-          i--;
-        }
+          else if (e[r] === "&") {
+            const c = ae(e, r);
+            if (c == -1)
+              return d("InvalidChar", "char '&' is not expected.", g(e, r));
+            r = c;
+          } else if (i === !0 && !U(e[r]))
+            return d("InvalidXml", "Extra text at the end", g(e, r));
+        e[r] === "<" && r--;
       }
     } else {
-      if (isWhiteSpace(xmlData[i])) {
+      if (U(e[r]))
         continue;
-      }
-      return getErrorObject("InvalidChar", "char '" + xmlData[i] + "' is not expected.", getLineNumberForPosition(xmlData, i));
+      return d("InvalidChar", "char '" + e[r] + "' is not expected.", g(e, r));
     }
-  }
-  if (!tagFound) {
-    return getErrorObject("InvalidXml", "Start tag expected.", 1);
-  } else if (tags.length == 1) {
-    return getErrorObject("InvalidTag", "Unclosed tag '" + tags[0].tagName + "'.", getLineNumberForPosition(xmlData, tags[0].tagStartPos));
-  } else if (tags.length > 0) {
-    return getErrorObject("InvalidXml", "Invalid '" + JSON.stringify(tags.map((t) => t.tagName), null, 4).replace(/\r?\n/g, "") + "' found.", { line: 1, col: 1 });
-  }
-  return true;
+  if (s) {
+    if (n.length == 1)
+      return d("InvalidTag", "Unclosed tag '" + n[0].tagName + "'.", g(e, n[0].tagStartPos));
+    if (n.length > 0)
+      return d("InvalidXml", "Invalid '" + JSON.stringify(n.map((r) => r.tagName), null, 4).replace(/\r?\n/g, "") + "' found.", { line: 1, col: 1 });
+  } else return d("InvalidXml", "Start tag expected.", 1);
+  return !0;
 }
-function isWhiteSpace(char) {
-  return char === " " || char === "	" || char === "\n" || char === "\r";
+function U(e) {
+  return e === " " || e === "	" || e === `
+` || e === "\r";
 }
-function readPI(xmlData, i) {
-  const start = i;
-  for (; i < xmlData.length; i++) {
-    if (xmlData[i] == "?" || xmlData[i] == " ") {
-      const tagname = xmlData.substr(start, i - start);
-      if (i > 5 && tagname === "xml") {
-        return getErrorObject("InvalidXml", "XML declaration allowed only at the start of the document.", getLineNumberForPosition(xmlData, i));
-      } else if (xmlData[i] == "?" && xmlData[i + 1] == ">") {
-        i++;
+function Y(e, t) {
+  const n = t;
+  for (; t < e.length; t++)
+    if (e[t] == "?" || e[t] == " ") {
+      const s = e.substr(n, t - n);
+      if (t > 5 && s === "xml")
+        return d("InvalidXml", "XML declaration allowed only at the start of the document.", g(e, t));
+      if (e[t] == "?" && e[t + 1] == ">") {
+        t++;
         break;
-      } else {
+      } else
         continue;
-      }
     }
-  }
-  return i;
+  return t;
 }
-function readCommentAndCDATA(xmlData, i) {
-  if (xmlData.length > i + 5 && xmlData[i + 1] === "-" && xmlData[i + 2] === "-") {
-    for (i += 3; i < xmlData.length; i++) {
-      if (xmlData[i] === "-" && xmlData[i + 1] === "-" && xmlData[i + 2] === ">") {
-        i += 2;
+function X(e, t) {
+  if (e.length > t + 5 && e[t + 1] === "-" && e[t + 2] === "-") {
+    for (t += 3; t < e.length; t++)
+      if (e[t] === "-" && e[t + 1] === "-" && e[t + 2] === ">") {
+        t += 2;
         break;
       }
-    }
-  } else if (xmlData.length > i + 8 && xmlData[i + 1] === "D" && xmlData[i + 2] === "O" && xmlData[i + 3] === "C" && xmlData[i + 4] === "T" && xmlData[i + 5] === "Y" && xmlData[i + 6] === "P" && xmlData[i + 7] === "E") {
-    let angleBracketsCount = 1;
-    for (i += 8; i < xmlData.length; i++) {
-      if (xmlData[i] === "<") {
-        angleBracketsCount++;
-      } else if (xmlData[i] === ">") {
-        angleBracketsCount--;
-        if (angleBracketsCount === 0) {
-          break;
-        }
-      }
-    }
-  } else if (xmlData.length > i + 9 && xmlData[i + 1] === "[" && xmlData[i + 2] === "C" && xmlData[i + 3] === "D" && xmlData[i + 4] === "A" && xmlData[i + 5] === "T" && xmlData[i + 6] === "A" && xmlData[i + 7] === "[") {
-    for (i += 8; i < xmlData.length; i++) {
-      if (xmlData[i] === "]" && xmlData[i + 1] === "]" && xmlData[i + 2] === ">") {
-        i += 2;
+  } else if (e.length > t + 8 && e[t + 1] === "D" && e[t + 2] === "O" && e[t + 3] === "C" && e[t + 4] === "T" && e[t + 5] === "Y" && e[t + 6] === "P" && e[t + 7] === "E") {
+    let n = 1;
+    for (t += 8; t < e.length; t++)
+      if (e[t] === "<")
+        n++;
+      else if (e[t] === ">" && (n--, n === 0))
+        break;
+  } else if (e.length > t + 9 && e[t + 1] === "[" && e[t + 2] === "C" && e[t + 3] === "D" && e[t + 4] === "A" && e[t + 5] === "T" && e[t + 6] === "A" && e[t + 7] === "[") {
+    for (t += 8; t < e.length; t++)
+      if (e[t] === "]" && e[t + 1] === "]" && e[t + 2] === ">") {
+        t += 2;
         break;
       }
-    }
   }
-  return i;
+  return t;
 }
-const doubleQuote = '"';
-const singleQuote = "'";
-function readAttributeStr(xmlData, i) {
-  let attrStr = "";
-  let startChar = "";
-  let tagClosed = false;
-  for (; i < xmlData.length; i++) {
-    if (xmlData[i] === doubleQuote || xmlData[i] === singleQuote) {
-      if (startChar === "") {
-        startChar = xmlData[i];
-      } else if (startChar !== xmlData[i]) ;
-      else {
-        startChar = "";
-      }
-    } else if (xmlData[i] === ">") {
-      if (startChar === "") {
-        tagClosed = true;
-        break;
-      }
+const ie = '"', oe = "'";
+function le(e, t) {
+  let n = "", s = "", i = !1;
+  for (; t < e.length; t++) {
+    if (e[t] === ie || e[t] === oe)
+      s === "" ? s = e[t] : s !== e[t] || (s = "");
+    else if (e[t] === ">" && s === "") {
+      i = !0;
+      break;
     }
-    attrStr += xmlData[i];
+    n += e[t];
   }
-  if (startChar !== "") {
-    return false;
-  }
-  return {
-    value: attrStr,
-    index: i,
-    tagClosed
+  return s !== "" ? !1 : {
+    value: n,
+    index: t,
+    tagClosed: i
   };
 }
-const validAttrStrRegxp = new RegExp(`(\\s*)([^\\s=]+)(\\s*=)?(\\s*(['"])(([\\s\\S])*?)\\5)?`, "g");
-function validateAttributeString(attrStr, options) {
-  const matches = getAllMatches(attrStr, validAttrStrRegxp);
-  const attrNames = {};
-  for (let i = 0; i < matches.length; i++) {
-    if (matches[i][1].length === 0) {
-      return getErrorObject("InvalidAttr", "Attribute '" + matches[i][2] + "' has no space in starting.", getPositionFromMatch(matches[i]));
-    } else if (matches[i][3] !== void 0 && matches[i][4] === void 0) {
-      return getErrorObject("InvalidAttr", "Attribute '" + matches[i][2] + "' is without value.", getPositionFromMatch(matches[i]));
-    } else if (matches[i][3] === void 0 && !options.allowBooleanAttributes) {
-      return getErrorObject("InvalidAttr", "boolean attribute '" + matches[i][2] + "' is not allowed.", getPositionFromMatch(matches[i]));
-    }
-    const attrName = matches[i][2];
-    if (!validateAttrName(attrName)) {
-      return getErrorObject("InvalidAttr", "Attribute '" + attrName + "' is an invalid name.", getPositionFromMatch(matches[i]));
-    }
-    if (!attrNames.hasOwnProperty(attrName)) {
-      attrNames[attrName] = 1;
-    } else {
-      return getErrorObject("InvalidAttr", "Attribute '" + attrName + "' is repeated.", getPositionFromMatch(matches[i]));
-    }
+const fe = new RegExp(`(\\s*)([^\\s=]+)(\\s*=)?(\\s*(['"])(([\\s\\S])*?)\\5)?`, "g");
+function Z(e, t) {
+  const n = q(e, fe), s = {};
+  for (let i = 0; i < n.length; i++) {
+    if (n[i][1].length === 0)
+      return d("InvalidAttr", "Attribute '" + n[i][2] + "' has no space in starting.", A(n[i]));
+    if (n[i][3] !== void 0 && n[i][4] === void 0)
+      return d("InvalidAttr", "Attribute '" + n[i][2] + "' is without value.", A(n[i]));
+    if (n[i][3] === void 0 && !t.allowBooleanAttributes)
+      return d("InvalidAttr", "boolean attribute '" + n[i][2] + "' is not allowed.", A(n[i]));
+    const r = n[i][2];
+    if (!ce(r))
+      return d("InvalidAttr", "Attribute '" + r + "' is an invalid name.", A(n[i]));
+    if (!s.hasOwnProperty(r))
+      s[r] = 1;
+    else
+      return d("InvalidAttr", "Attribute '" + r + "' is repeated.", A(n[i]));
   }
-  return true;
+  return !0;
 }
-function validateNumberAmpersand(xmlData, i) {
-  let re = /\d/;
-  if (xmlData[i] === "x") {
-    i++;
-    re = /[\da-fA-F]/;
-  }
-  for (; i < xmlData.length; i++) {
-    if (xmlData[i] === ";")
-      return i;
-    if (!xmlData[i].match(re))
+function ue(e, t) {
+  let n = /\d/;
+  for (e[t] === "x" && (t++, n = /[\da-fA-F]/); t < e.length; t++) {
+    if (e[t] === ";")
+      return t;
+    if (!e[t].match(n))
       break;
   }
   return -1;
 }
-function validateAmpersand(xmlData, i) {
-  i++;
-  if (xmlData[i] === ";")
+function ae(e, t) {
+  if (t++, e[t] === ";")
     return -1;
-  if (xmlData[i] === "#") {
-    i++;
-    return validateNumberAmpersand(xmlData, i);
-  }
-  let count = 0;
-  for (; i < xmlData.length; i++, count++) {
-    if (xmlData[i].match(/\w/) && count < 20)
-      continue;
-    if (xmlData[i] === ";")
-      break;
-    return -1;
-  }
-  return i;
+  if (e[t] === "#")
+    return t++, ue(e, t);
+  let n = 0;
+  for (; t < e.length; t++, n++)
+    if (!(e[t].match(/\w/) && n < 20)) {
+      if (e[t] === ";")
+        break;
+      return -1;
+    }
+  return t;
 }
-function getErrorObject(code, message, lineNumber) {
+function d(e, t, n) {
   return {
     err: {
-      code,
-      msg: message,
-      line: lineNumber.line || lineNumber,
-      col: lineNumber.col
+      code: e,
+      msg: t,
+      line: n.line || n,
+      col: n.col
     }
   };
 }
-function validateAttrName(attrName) {
-  return isName(attrName);
+function ce(e) {
+  return R(e);
 }
-function validateTagName(tagname) {
-  return isName(tagname);
+function de(e) {
+  return R(e);
 }
-function getLineNumberForPosition(xmlData, index) {
-  const lines = xmlData.substring(0, index).split(/\r?\n/);
+function g(e, t) {
+  const n = e.substring(0, t).split(/\r?\n/);
   return {
-    line: lines.length,
+    line: n.length,
     // column number is last line's length + 1, because column numbering starts at 1:
-    col: lines[lines.length - 1].length + 1
+    col: n[n.length - 1].length + 1
   };
 }
-function getPositionFromMatch(match) {
-  return match.startIndex + match[1].length;
+function A(e) {
+  return e.startIndex + e[1].length;
 }
-const defaultOptions = {
-  preserveOrder: false,
+const ge = {
+  preserveOrder: !1,
   attributeNamePrefix: "@_",
-  attributesGroupName: false,
+  attributesGroupName: !1,
   textNodeName: "#text",
-  ignoreAttributes: true,
-  removeNSPrefix: false,
+  ignoreAttributes: !0,
+  removeNSPrefix: !1,
   // remove NS from tag name or attribute name if true
-  allowBooleanAttributes: false,
+  allowBooleanAttributes: !1,
   //a tag can have attributes without any value
   //ignoreRootElement : false,
-  parseTagValue: true,
-  parseAttributeValue: false,
-  trimValues: true,
+  parseTagValue: !0,
+  parseAttributeValue: !1,
+  trimValues: !0,
   //Trim string values of tag and attributes
-  cdataPropName: false,
+  cdataPropName: !1,
   numberParseOptions: {
-    hex: true,
-    leadingZeros: true,
-    eNotation: true
+    hex: !0,
+    leadingZeros: !0,
+    eNotation: !0
   },
-  tagValueProcessor: function(tagName, val) {
-    return val;
+  tagValueProcessor: function(e, t) {
+    return t;
   },
-  attributeValueProcessor: function(attrName, val) {
-    return val;
+  attributeValueProcessor: function(e, t) {
+    return t;
   },
   stopNodes: [],
   //nested tags will not be parsed even for errors
-  alwaysCreateTextNode: false,
-  isArray: () => false,
-  commentPropName: false,
+  alwaysCreateTextNode: !1,
+  isArray: () => !1,
+  commentPropName: !1,
   unpairedTags: [],
-  processEntities: true,
-  htmlEntities: false,
-  ignoreDeclaration: false,
-  ignorePiTags: false,
-  transformTagName: false,
-  transformAttributeName: false,
-  updateTag: function(tagName, jPath, attrs) {
-    return tagName;
+  processEntities: !0,
+  htmlEntities: !1,
+  ignoreDeclaration: !1,
+  ignorePiTags: !1,
+  transformTagName: !1,
+  transformAttributeName: !1,
+  updateTag: function(e, t, n) {
+    return e;
   },
   // skipEmptyListItem: false
-  captureMetaData: false
+  captureMetaData: !1
+}, he = function(e) {
+  return Object.assign({}, ge, e);
 };
-const buildOptions = function(options) {
-  return Object.assign({}, defaultOptions, options);
-};
-let METADATA_SYMBOL$1;
-if (typeof Symbol !== "function") {
-  METADATA_SYMBOL$1 = "@@xmlMetadata";
-} else {
-  METADATA_SYMBOL$1 = Symbol("XML Node Metadata");
-}
-class XmlNode {
-  constructor(tagname) {
-    this.tagname = tagname;
-    this.child = [];
-    this[":@"] = {};
+let C;
+typeof Symbol != "function" ? C = "@@xmlMetadata" : C = Symbol("XML Node Metadata");
+class T {
+  constructor(t) {
+    this.tagname = t, this.child = [], this[":@"] = {};
   }
-  add(key, val) {
-    if (key === "__proto__") key = "#__proto__";
-    this.child.push({ [key]: val });
+  add(t, n) {
+    t === "__proto__" && (t = "#__proto__"), this.child.push({ [t]: n });
   }
-  addChild(node, startIndex) {
-    if (node.tagname === "__proto__") node.tagname = "#__proto__";
-    if (node[":@"] && Object.keys(node[":@"]).length > 0) {
-      this.child.push({ [node.tagname]: node.child, [":@"]: node[":@"] });
-    } else {
-      this.child.push({ [node.tagname]: node.child });
-    }
-    if (startIndex !== void 0) {
-      this.child[this.child.length - 1][METADATA_SYMBOL$1] = { startIndex };
-    }
+  addChild(t, n) {
+    t.tagname === "__proto__" && (t.tagname = "#__proto__"), t[":@"] && Object.keys(t[":@"]).length > 0 ? this.child.push({ [t.tagname]: t.child, ":@": t[":@"] }) : this.child.push({ [t.tagname]: t.child }), n !== void 0 && (this.child[this.child.length - 1][C] = { startIndex: n });
   }
   /** symbol used for metadata */
   static getMetaDataSymbol() {
-    return METADATA_SYMBOL$1;
+    return C;
   }
 }
-function readDocType(xmlData, i) {
-  const entities = {};
-  if (xmlData[i + 3] === "O" && xmlData[i + 4] === "C" && xmlData[i + 5] === "T" && xmlData[i + 6] === "Y" && xmlData[i + 7] === "P" && xmlData[i + 8] === "E") {
-    i = i + 9;
-    let angleBracketsCount = 1;
-    let hasBody = false, comment = false;
-    let exp = "";
-    for (; i < xmlData.length; i++) {
-      if (xmlData[i] === "<" && !comment) {
-        if (hasBody && hasSeq(xmlData, "!ENTITY", i)) {
-          i += 7;
-          let entityName, val;
-          [entityName, val, i] = readEntityExp(xmlData, i + 1);
-          if (val.indexOf("&") === -1)
-            entities[entityName] = {
-              regx: RegExp(`&${entityName};`, "g"),
-              val
-            };
-        } else if (hasBody && hasSeq(xmlData, "!ELEMENT", i)) {
-          i += 8;
-          const { index } = readElementExp(xmlData, i + 1);
-          i = index;
-        } else if (hasBody && hasSeq(xmlData, "!ATTLIST", i)) {
-          i += 8;
-        } else if (hasBody && hasSeq(xmlData, "!NOTATION", i)) {
-          i += 9;
-          const { index } = readNotationExp(xmlData, i + 1);
-          i = index;
-        } else if (hasSeq(xmlData, "!--", i)) comment = true;
-        else throw new Error(`Invalid DOCTYPE`);
-        angleBracketsCount++;
-        exp = "";
-      } else if (xmlData[i] === ">") {
-        if (comment) {
-          if (xmlData[i - 1] === "-" && xmlData[i - 2] === "-") {
-            comment = false;
-            angleBracketsCount--;
-          }
-        } else {
-          angleBracketsCount--;
-        }
-        if (angleBracketsCount === 0) {
+function pe(e, t) {
+  const n = {};
+  if (e[t + 3] === "O" && e[t + 4] === "C" && e[t + 5] === "T" && e[t + 6] === "Y" && e[t + 7] === "P" && e[t + 8] === "E") {
+    t = t + 9;
+    let s = 1, i = !1, r = !1, f = "";
+    for (; t < e.length; t++)
+      if (e[t] === "<" && !r) {
+        if (i && w(e, "!ENTITY", t)) {
+          t += 7;
+          let l, o;
+          [l, o, t] = be(e, t + 1), o.indexOf("&") === -1 && (n[l] = {
+            regx: RegExp(`&${l};`, "g"),
+            val: o
+          });
+        } else if (i && w(e, "!ELEMENT", t)) {
+          t += 8;
+          const { index: l } = Ee(e, t + 1);
+          t = l;
+        } else if (i && w(e, "!ATTLIST", t))
+          t += 8;
+        else if (i && w(e, "!NOTATION", t)) {
+          t += 9;
+          const { index: l } = Ne(e, t + 1);
+          t = l;
+        } else if (w(e, "!--", t)) r = !0;
+        else throw new Error("Invalid DOCTYPE");
+        s++, f = "";
+      } else if (e[t] === ">") {
+        if (r ? e[t - 1] === "-" && e[t - 2] === "-" && (r = !1, s--) : s--, s === 0)
           break;
-        }
-      } else if (xmlData[i] === "[") {
-        hasBody = true;
-      } else {
-        exp += xmlData[i];
-      }
-    }
-    if (angleBracketsCount !== 0) {
-      throw new Error(`Unclosed DOCTYPE`);
-    }
-  } else {
-    throw new Error(`Invalid Tag instead of DOCTYPE`);
-  }
-  return { entities, i };
+      } else e[t] === "[" ? i = !0 : f += e[t];
+    if (s !== 0)
+      throw new Error("Unclosed DOCTYPE");
+  } else
+    throw new Error("Invalid Tag instead of DOCTYPE");
+  return { entities: n, i: t };
 }
-const skipWhitespace = (data, index) => {
-  while (index < data.length && /\s/.test(data[index])) {
-    index++;
-  }
-  return index;
+const E = (e, t) => {
+  for (; t < e.length && /\s/.test(e[t]); )
+    t++;
+  return t;
 };
-function readEntityExp(xmlData, i) {
-  i = skipWhitespace(xmlData, i);
-  let entityName = "";
-  while (i < xmlData.length && !/\s/.test(xmlData[i]) && xmlData[i] !== '"' && xmlData[i] !== "'") {
-    entityName += xmlData[i];
-    i++;
-  }
-  validateEntityName(entityName);
-  i = skipWhitespace(xmlData, i);
-  if (xmlData.substring(i, i + 6).toUpperCase() === "SYSTEM") {
+function be(e, t) {
+  t = E(e, t);
+  let n = "";
+  for (; t < e.length && !/\s/.test(e[t]) && e[t] !== '"' && e[t] !== "'"; )
+    n += e[t], t++;
+  if ($(n), t = E(e, t), e.substring(t, t + 6).toUpperCase() === "SYSTEM")
     throw new Error("External entities are not supported");
-  } else if (xmlData[i] === "%") {
+  if (e[t] === "%")
     throw new Error("Parameter entities are not supported");
-  }
-  let entityValue = "";
-  [i, entityValue] = readIdentifierVal(xmlData, i, "entity");
-  i--;
-  return [entityName, entityValue, i];
+  let s = "";
+  return [t, s] = m(e, t, "entity"), t--, [n, s, t];
 }
-function readNotationExp(xmlData, i) {
-  i = skipWhitespace(xmlData, i);
-  let notationName = "";
-  while (i < xmlData.length && !/\s/.test(xmlData[i])) {
-    notationName += xmlData[i];
-    i++;
-  }
-  validateEntityName(notationName);
-  i = skipWhitespace(xmlData, i);
-  const identifierType = xmlData.substring(i, i + 6).toUpperCase();
-  if (identifierType !== "SYSTEM" && identifierType !== "PUBLIC") {
-    throw new Error(`Expected SYSTEM or PUBLIC, found "${identifierType}"`);
-  }
-  i += identifierType.length;
-  i = skipWhitespace(xmlData, i);
-  let publicIdentifier = null;
-  let systemIdentifier = null;
-  if (identifierType === "PUBLIC") {
-    [i, publicIdentifier] = readIdentifierVal(xmlData, i, "publicIdentifier");
-    i = skipWhitespace(xmlData, i);
-    if (xmlData[i] === '"' || xmlData[i] === "'") {
-      [i, systemIdentifier] = readIdentifierVal(xmlData, i, "systemIdentifier");
-    }
-  } else if (identifierType === "SYSTEM") {
-    [i, systemIdentifier] = readIdentifierVal(xmlData, i, "systemIdentifier");
-    if (!systemIdentifier) {
-      throw new Error("Missing mandatory system identifier for SYSTEM notation");
-    }
-  }
-  return { notationName, publicIdentifier, systemIdentifier, index: --i };
+function Ne(e, t) {
+  t = E(e, t);
+  let n = "";
+  for (; t < e.length && !/\s/.test(e[t]); )
+    n += e[t], t++;
+  $(n), t = E(e, t);
+  const s = e.substring(t, t + 6).toUpperCase();
+  if (s !== "SYSTEM" && s !== "PUBLIC")
+    throw new Error(`Expected SYSTEM or PUBLIC, found "${s}"`);
+  t += s.length, t = E(e, t);
+  let i = null, r = null;
+  if (s === "PUBLIC")
+    [t, i] = m(e, t, "publicIdentifier"), t = E(e, t), (e[t] === '"' || e[t] === "'") && ([t, r] = m(e, t, "systemIdentifier"));
+  else if (s === "SYSTEM" && ([t, r] = m(e, t, "systemIdentifier"), !r))
+    throw new Error("Missing mandatory system identifier for SYSTEM notation");
+  return { notationName: n, publicIdentifier: i, systemIdentifier: r, index: --t };
 }
-function readIdentifierVal(xmlData, i, type) {
-  let identifierVal = "";
-  const startChar = xmlData[i];
-  if (startChar !== '"' && startChar !== "'") {
-    throw new Error(`Expected quoted string, found "${startChar}"`);
-  }
-  i++;
-  while (i < xmlData.length && xmlData[i] !== startChar) {
-    identifierVal += xmlData[i];
-    i++;
-  }
-  if (xmlData[i] !== startChar) {
-    throw new Error(`Unterminated ${type} value`);
-  }
-  i++;
-  return [i, identifierVal];
+function m(e, t, n) {
+  let s = "";
+  const i = e[t];
+  if (i !== '"' && i !== "'")
+    throw new Error(`Expected quoted string, found "${i}"`);
+  for (t++; t < e.length && e[t] !== i; )
+    s += e[t], t++;
+  if (e[t] !== i)
+    throw new Error(`Unterminated ${n} value`);
+  return t++, [t, s];
 }
-function readElementExp(xmlData, i) {
-  i = skipWhitespace(xmlData, i);
-  let elementName = "";
-  while (i < xmlData.length && !/\s/.test(xmlData[i])) {
-    elementName += xmlData[i];
-    i++;
-  }
-  if (!validateEntityName(elementName)) {
-    throw new Error(`Invalid element name: "${elementName}"`);
-  }
-  i = skipWhitespace(xmlData, i);
-  let contentModel = "";
-  if (xmlData[i] === "E" && hasSeq(xmlData, "MPTY", i)) i += 4;
-  else if (xmlData[i] === "A" && hasSeq(xmlData, "NY", i)) i += 2;
-  else if (xmlData[i] === "(") {
-    i++;
-    while (i < xmlData.length && xmlData[i] !== ")") {
-      contentModel += xmlData[i];
-      i++;
-    }
-    if (xmlData[i] !== ")") {
+function Ee(e, t) {
+  t = E(e, t);
+  let n = "";
+  for (; t < e.length && !/\s/.test(e[t]); )
+    n += e[t], t++;
+  if (!$(n))
+    throw new Error(`Invalid element name: "${n}"`);
+  t = E(e, t);
+  let s = "";
+  if (e[t] === "E" && w(e, "MPTY", t)) t += 4;
+  else if (e[t] === "A" && w(e, "NY", t)) t += 2;
+  else if (e[t] === "(") {
+    for (t++; t < e.length && e[t] !== ")"; )
+      s += e[t], t++;
+    if (e[t] !== ")")
       throw new Error("Unterminated content model");
-    }
-  } else {
-    throw new Error(`Invalid Element Expression, found "${xmlData[i]}"`);
-  }
+  } else
+    throw new Error(`Invalid Element Expression, found "${e[t]}"`);
   return {
-    elementName,
-    contentModel: contentModel.trim(),
-    index: i
+    elementName: n,
+    contentModel: s.trim(),
+    index: t
   };
 }
-function hasSeq(data, seq, i) {
-  for (let j = 0; j < seq.length; j++) {
-    if (seq[j] !== data[i + j + 1]) return false;
-  }
-  return true;
+function w(e, t, n) {
+  for (let s = 0; s < t.length; s++)
+    if (t[s] !== e[n + s + 1]) return !1;
+  return !0;
 }
-function validateEntityName(name) {
-  if (isName(name))
-    return name;
-  else
-    throw new Error(`Invalid entity name ${name}`);
+function $(e) {
+  if (R(e))
+    return e;
+  throw new Error(`Invalid entity name ${e}`);
 }
-const hexRegex = /^[-+]?0x[a-fA-F0-9]+$/;
-const numRegex = /^([\-\+])?(0*)([0-9]*(\.[0-9]*)?)$/;
-const consider = {
-  hex: true,
+const Te = /^[-+]?0x[a-fA-F0-9]+$/, we = /^([\-\+])?(0*)([0-9]*(\.[0-9]*)?)$/, ye = {
+  hex: !0,
   // oct: false,
-  leadingZeros: true,
+  leadingZeros: !0,
   decimalPoint: ".",
-  eNotation: true
+  eNotation: !0
   //skipLike: /regex/
 };
-function toNumber(str, options = {}) {
-  options = Object.assign({}, consider, options);
-  if (!str || typeof str !== "string") return str;
-  let trimmedStr = str.trim();
-  if (options.skipLike !== void 0 && options.skipLike.test(trimmedStr)) return str;
-  else if (str === "0") return 0;
-  else if (options.hex && hexRegex.test(trimmedStr)) {
-    return parse_int(trimmedStr, 16);
-  } else if (trimmedStr.search(/.+[eE].+/) !== -1) {
-    return resolveEnotation(str, trimmedStr, options);
-  } else {
-    const match = numRegex.exec(trimmedStr);
-    if (match) {
-      const sign = match[1] || "";
-      const leadingZeros = match[2];
-      let numTrimmedByZeros = trimZeros(match[3]);
-      const decimalAdjacentToLeadingZeros = sign ? (
+function Ie(e, t = {}) {
+  if (t = Object.assign({}, ye, t), !e || typeof e != "string") return e;
+  let n = e.trim();
+  if (t.skipLike !== void 0 && t.skipLike.test(n)) return e;
+  if (e === "0") return 0;
+  if (t.hex && Te.test(n))
+    return Oe(n, 16);
+  if (n.search(/.+[eE].+/) !== -1)
+    return Ae(e, n, t);
+  {
+    const s = we.exec(n);
+    if (s) {
+      const i = s[1] || "", r = s[2];
+      let f = ve(s[3]);
+      const l = i ? (
         // 0., -00., 000.
-        str[leadingZeros.length + 1] === "."
-      ) : str[leadingZeros.length] === ".";
-      if (!options.leadingZeros && (leadingZeros.length > 1 || leadingZeros.length === 1 && !decimalAdjacentToLeadingZeros)) {
-        return str;
-      } else {
-        const num = Number(trimmedStr);
-        const parsedStr = String(num);
-        if (num === 0) return num;
-        if (parsedStr.search(/[eE]/) !== -1) {
-          if (options.eNotation) return num;
-          else return str;
-        } else if (trimmedStr.indexOf(".") !== -1) {
-          if (parsedStr === "0") return num;
-          else if (parsedStr === numTrimmedByZeros) return num;
-          else if (parsedStr === `${sign}${numTrimmedByZeros}`) return num;
-          else return str;
-        }
-        let n = leadingZeros ? numTrimmedByZeros : trimmedStr;
-        if (leadingZeros) {
-          return n === parsedStr || sign + n === parsedStr ? num : str;
-        } else {
-          return n === parsedStr || n === sign + parsedStr ? num : str;
-        }
+        e[r.length + 1] === "."
+      ) : e[r.length] === ".";
+      if (!t.leadingZeros && (r.length > 1 || r.length === 1 && !l))
+        return e;
+      {
+        const o = Number(n), a = String(o);
+        if (o === 0) return o;
+        if (a.search(/[eE]/) !== -1)
+          return t.eNotation ? o : e;
+        if (n.indexOf(".") !== -1)
+          return a === "0" || a === f || a === `${i}${f}` ? o : e;
+        let u = r ? f : n;
+        return r ? u === a || i + u === a ? o : e : u === a || u === i + a ? o : e;
       }
-    } else {
-      return str;
-    }
+    } else
+      return e;
   }
 }
-const eNotationRegx = /^([-+])?(0*)(\d*(\.\d*)?[eE][-\+]?\d+)$/;
-function resolveEnotation(str, trimmedStr, options) {
-  if (!options.eNotation) return str;
-  const notation = trimmedStr.match(eNotationRegx);
-  if (notation) {
-    let sign = notation[1] || "";
-    const eChar = notation[3].indexOf("e") === -1 ? "E" : "e";
-    const leadingZeros = notation[2];
-    const eAdjacentToLeadingZeros = sign ? (
+const Pe = /^([-+])?(0*)(\d*(\.\d*)?[eE][-\+]?\d+)$/;
+function Ae(e, t, n) {
+  if (!n.eNotation) return e;
+  const s = t.match(Pe);
+  if (s) {
+    let i = s[1] || "";
+    const r = s[3].indexOf("e") === -1 ? "E" : "e", f = s[2], l = i ? (
       // 0E.
-      str[leadingZeros.length + 1] === eChar
-    ) : str[leadingZeros.length] === eChar;
-    if (leadingZeros.length > 1 && eAdjacentToLeadingZeros) return str;
-    else if (leadingZeros.length === 1 && (notation[3].startsWith(`.${eChar}`) || notation[3][0] === eChar)) {
-      return Number(trimmedStr);
-    } else if (options.leadingZeros && !eAdjacentToLeadingZeros) {
-      trimmedStr = (notation[1] || "") + notation[3];
-      return Number(trimmedStr);
-    } else return str;
-  } else {
-    return str;
-  }
+      e[f.length + 1] === r
+    ) : e[f.length] === r;
+    return f.length > 1 && l ? e : f.length === 1 && (s[3].startsWith(`.${r}`) || s[3][0] === r) ? Number(t) : n.leadingZeros && !l ? (t = (s[1] || "") + s[3], Number(t)) : e;
+  } else
+    return e;
 }
-function trimZeros(numStr) {
-  if (numStr && numStr.indexOf(".") !== -1) {
-    numStr = numStr.replace(/0+$/, "");
-    if (numStr === ".") numStr = "0";
-    else if (numStr[0] === ".") numStr = "0" + numStr;
-    else if (numStr[numStr.length - 1] === ".") numStr = numStr.substring(0, numStr.length - 1);
-    return numStr;
-  }
-  return numStr;
+function ve(e) {
+  return e && e.indexOf(".") !== -1 && (e = e.replace(/0+$/, ""), e === "." ? e = "0" : e[0] === "." ? e = "0" + e : e[e.length - 1] === "." && (e = e.substring(0, e.length - 1))), e;
 }
-function parse_int(numStr, base) {
-  if (parseInt) return parseInt(numStr, base);
-  else if (Number.parseInt) return Number.parseInt(numStr, base);
-  else if (window && window.parseInt) return window.parseInt(numStr, base);
-  else throw new Error("parseInt, Number.parseInt, window.parseInt are not supported");
+function Oe(e, t) {
+  if (parseInt) return parseInt(e, t);
+  if (Number.parseInt) return Number.parseInt(e, t);
+  if (window && window.parseInt) return window.parseInt(e, t);
+  throw new Error("parseInt, Number.parseInt, window.parseInt are not supported");
 }
-function getIgnoreAttributesFn(ignoreAttributes) {
-  if (typeof ignoreAttributes === "function") {
-    return ignoreAttributes;
-  }
-  if (Array.isArray(ignoreAttributes)) {
-    return (attrName) => {
-      for (const pattern of ignoreAttributes) {
-        if (typeof pattern === "string" && attrName === pattern) {
-          return true;
-        }
-        if (pattern instanceof RegExp && pattern.test(attrName)) {
-          return true;
-        }
-      }
-    };
-  }
-  return () => false;
+function me(e) {
+  return typeof e == "function" ? e : Array.isArray(e) ? (t) => {
+    for (const n of e)
+      if (typeof n == "string" && t === n || n instanceof RegExp && n.test(t))
+        return !0;
+  } : () => !1;
 }
-class OrderedObjParser {
-  constructor(options) {
-    this.options = options;
-    this.currentNode = null;
-    this.tagsNodeStack = [];
-    this.docTypeEntities = {};
-    this.lastEntities = {
-      "apos": { regex: /&(apos|#39|#x27);/g, val: "'" },
-      "gt": { regex: /&(gt|#62|#x3E);/g, val: ">" },
-      "lt": { regex: /&(lt|#60|#x3C);/g, val: "<" },
-      "quot": { regex: /&(quot|#34|#x22);/g, val: '"' }
-    };
-    this.ampEntity = { regex: /&(amp|#38|#x26);/g, val: "&" };
-    this.htmlEntities = {
-      "space": { regex: /&(nbsp|#160);/g, val: " " },
+class Ce {
+  constructor(t) {
+    this.options = t, this.currentNode = null, this.tagsNodeStack = [], this.docTypeEntities = {}, this.lastEntities = {
+      apos: { regex: /&(apos|#39|#x27);/g, val: "'" },
+      gt: { regex: /&(gt|#62|#x3E);/g, val: ">" },
+      lt: { regex: /&(lt|#60|#x3C);/g, val: "<" },
+      quot: { regex: /&(quot|#34|#x22);/g, val: '"' }
+    }, this.ampEntity = { regex: /&(amp|#38|#x26);/g, val: "&" }, this.htmlEntities = {
+      space: { regex: /&(nbsp|#160);/g, val: " " },
       // "lt" : { regex: /&(lt|#60);/g, val: "<" },
       // "gt" : { regex: /&(gt|#62);/g, val: ">" },
       // "amp" : { regex: /&(amp|#38);/g, val: "&" },
       // "quot" : { regex: /&(quot|#34);/g, val: "\"" },
       // "apos" : { regex: /&(apos|#39);/g, val: "'" },
-      "cent": { regex: /&(cent|#162);/g, val: "¢" },
-      "pound": { regex: /&(pound|#163);/g, val: "£" },
-      "yen": { regex: /&(yen|#165);/g, val: "¥" },
-      "euro": { regex: /&(euro|#8364);/g, val: "€" },
-      "copyright": { regex: /&(copy|#169);/g, val: "©" },
-      "reg": { regex: /&(reg|#174);/g, val: "®" },
-      "inr": { regex: /&(inr|#8377);/g, val: "₹" },
-      "num_dec": { regex: /&#([0-9]{1,7});/g, val: (_, str) => String.fromCodePoint(Number.parseInt(str, 10)) },
-      "num_hex": { regex: /&#x([0-9a-fA-F]{1,6});/g, val: (_, str) => String.fromCodePoint(Number.parseInt(str, 16)) }
-    };
-    this.addExternalEntities = addExternalEntities;
-    this.parseXml = parseXml;
-    this.parseTextData = parseTextData;
-    this.resolveNameSpace = resolveNameSpace;
-    this.buildAttributesMap = buildAttributesMap;
-    this.isItStopNode = isItStopNode;
-    this.replaceEntitiesValue = replaceEntitiesValue;
-    this.readStopNodeData = readStopNodeData;
-    this.saveTextToParentTag = saveTextToParentTag;
-    this.addChild = addChild;
-    this.ignoreAttributesFn = getIgnoreAttributesFn(this.options.ignoreAttributes);
+      cent: { regex: /&(cent|#162);/g, val: "¢" },
+      pound: { regex: /&(pound|#163);/g, val: "£" },
+      yen: { regex: /&(yen|#165);/g, val: "¥" },
+      euro: { regex: /&(euro|#8364);/g, val: "€" },
+      copyright: { regex: /&(copy|#169);/g, val: "©" },
+      reg: { regex: /&(reg|#174);/g, val: "®" },
+      inr: { regex: /&(inr|#8377);/g, val: "₹" },
+      num_dec: { regex: /&#([0-9]{1,7});/g, val: (n, s) => String.fromCodePoint(Number.parseInt(s, 10)) },
+      num_hex: { regex: /&#x([0-9a-fA-F]{1,6});/g, val: (n, s) => String.fromCodePoint(Number.parseInt(s, 16)) }
+    }, this.addExternalEntities = Se, this.parseXml = Ve, this.parseTextData = _e, this.resolveNameSpace = ke, this.buildAttributesMap = Me, this.isItStopNode = Be, this.replaceEntitiesValue = Re, this.readStopNodeData = Ue, this.saveTextToParentTag = $e, this.addChild = je, this.ignoreAttributesFn = me(this.options.ignoreAttributes);
   }
 }
-function addExternalEntities(externalEntities) {
-  const entKeys = Object.keys(externalEntities);
-  for (let i = 0; i < entKeys.length; i++) {
-    const ent = entKeys[i];
-    this.lastEntities[ent] = {
-      regex: new RegExp("&" + ent + ";", "g"),
-      val: externalEntities[ent]
+function Se(e) {
+  const t = Object.keys(e);
+  for (let n = 0; n < t.length; n++) {
+    const s = t[n];
+    this.lastEntities[s] = {
+      regex: new RegExp("&" + s + ";", "g"),
+      val: e[s]
     };
   }
 }
-function parseTextData(val, tagName, jPath, dontTrim, hasAttributes, isLeafNode, escapeEntities) {
-  if (val !== void 0) {
-    if (this.options.trimValues && !dontTrim) {
-      val = val.trim();
-    }
-    if (val.length > 0) {
-      if (!escapeEntities) val = this.replaceEntitiesValue(val);
-      const newval = this.options.tagValueProcessor(tagName, val, jPath, hasAttributes, isLeafNode);
-      if (newval === null || newval === void 0) {
-        return val;
-      } else if (typeof newval !== typeof val || newval !== val) {
-        return newval;
-      } else if (this.options.trimValues) {
-        return parseValue(val, this.options.parseTagValue, this.options.numberParseOptions);
-      } else {
-        const trimmedVal = val.trim();
-        if (trimmedVal === val) {
-          return parseValue(val, this.options.parseTagValue, this.options.numberParseOptions);
-        } else {
-          return val;
-        }
-      }
-    }
+function _e(e, t, n, s, i, r, f) {
+  if (e !== void 0 && (this.options.trimValues && !s && (e = e.trim()), e.length > 0)) {
+    f || (e = this.replaceEntitiesValue(e));
+    const l = this.options.tagValueProcessor(t, e, n, i, r);
+    return l == null ? e : typeof l != typeof e || l !== e ? l : this.options.trimValues ? V(e, this.options.parseTagValue, this.options.numberParseOptions) : e.trim() === e ? V(e, this.options.parseTagValue, this.options.numberParseOptions) : e;
   }
 }
-function resolveNameSpace(tagname) {
+function ke(e) {
   if (this.options.removeNSPrefix) {
-    const tags = tagname.split(":");
-    const prefix = tagname.charAt(0) === "/" ? "/" : "";
-    if (tags[0] === "xmlns") {
+    const t = e.split(":"), n = e.charAt(0) === "/" ? "/" : "";
+    if (t[0] === "xmlns")
       return "";
-    }
-    if (tags.length === 2) {
-      tagname = prefix + tags[1];
-    }
+    t.length === 2 && (e = n + t[1]);
   }
-  return tagname;
+  return e;
 }
-const attrsRegx = new RegExp(`([^\\s=]+)\\s*(=\\s*(['"])([\\s\\S]*?)\\3)?`, "gm");
-function buildAttributesMap(attrStr, jPath, tagName) {
-  if (this.options.ignoreAttributes !== true && typeof attrStr === "string") {
-    const matches = getAllMatches(attrStr, attrsRegx);
-    const len = matches.length;
-    const attrs = {};
-    for (let i = 0; i < len; i++) {
-      const attrName = this.resolveNameSpace(matches[i][1]);
-      if (this.ignoreAttributesFn(attrName, jPath)) {
+const Fe = new RegExp(`([^\\s=]+)\\s*(=\\s*(['"])([\\s\\S]*?)\\3)?`, "gm");
+function Me(e, t, n) {
+  if (this.options.ignoreAttributes !== !0 && typeof e == "string") {
+    const s = q(e, Fe), i = s.length, r = {};
+    for (let f = 0; f < i; f++) {
+      const l = this.resolveNameSpace(s[f][1]);
+      if (this.ignoreAttributesFn(l, t))
         continue;
-      }
-      let oldVal = matches[i][4];
-      let aName = this.options.attributeNamePrefix + attrName;
-      if (attrName.length) {
-        if (this.options.transformAttributeName) {
-          aName = this.options.transformAttributeName(aName);
-        }
-        if (aName === "__proto__") aName = "#__proto__";
-        if (oldVal !== void 0) {
-          if (this.options.trimValues) {
-            oldVal = oldVal.trim();
-          }
-          oldVal = this.replaceEntitiesValue(oldVal);
-          const newVal = this.options.attributeValueProcessor(attrName, oldVal, jPath);
-          if (newVal === null || newVal === void 0) {
-            attrs[aName] = oldVal;
-          } else if (typeof newVal !== typeof oldVal || newVal !== oldVal) {
-            attrs[aName] = newVal;
-          } else {
-            attrs[aName] = parseValue(
-              oldVal,
-              this.options.parseAttributeValue,
-              this.options.numberParseOptions
-            );
-          }
-        } else if (this.options.allowBooleanAttributes) {
-          attrs[aName] = true;
-        }
-      }
+      let o = s[f][4], a = this.options.attributeNamePrefix + l;
+      if (l.length)
+        if (this.options.transformAttributeName && (a = this.options.transformAttributeName(a)), a === "__proto__" && (a = "#__proto__"), o !== void 0) {
+          this.options.trimValues && (o = o.trim()), o = this.replaceEntitiesValue(o);
+          const u = this.options.attributeValueProcessor(l, o, t);
+          u == null ? r[a] = o : typeof u != typeof o || u !== o ? r[a] = u : r[a] = V(
+            o,
+            this.options.parseAttributeValue,
+            this.options.numberParseOptions
+          );
+        } else this.options.allowBooleanAttributes && (r[a] = !0);
     }
-    if (!Object.keys(attrs).length) {
+    if (!Object.keys(r).length)
       return;
-    }
     if (this.options.attributesGroupName) {
-      const attrCollection = {};
-      attrCollection[this.options.attributesGroupName] = attrs;
-      return attrCollection;
+      const f = {};
+      return f[this.options.attributesGroupName] = r, f;
     }
-    return attrs;
+    return r;
   }
 }
-const parseXml = function(xmlData) {
-  xmlData = xmlData.replace(/\r\n?/g, "\n");
-  const xmlObj = new XmlNode("!xml");
-  let currentNode = xmlObj;
-  let textData = "";
-  let jPath = "";
-  for (let i = 0; i < xmlData.length; i++) {
-    const ch = xmlData[i];
-    if (ch === "<") {
-      if (xmlData[i + 1] === "/") {
-        const closeIndex = findClosingIndex(xmlData, ">", i, "Closing Tag is not closed.");
-        let tagName = xmlData.substring(i + 2, closeIndex).trim();
+const Ve = function(e) {
+  e = e.replace(/\r\n?/g, `
+`);
+  const t = new T("!xml");
+  let n = t, s = "", i = "";
+  for (let r = 0; r < e.length; r++)
+    if (e[r] === "<")
+      if (e[r + 1] === "/") {
+        const l = y(e, ">", r, "Closing Tag is not closed.");
+        let o = e.substring(r + 2, l).trim();
         if (this.options.removeNSPrefix) {
-          const colonIndex = tagName.indexOf(":");
-          if (colonIndex !== -1) {
-            tagName = tagName.substr(colonIndex + 1);
-          }
+          const c = o.indexOf(":");
+          c !== -1 && (o = o.substr(c + 1));
         }
-        if (this.options.transformTagName) {
-          tagName = this.options.transformTagName(tagName);
+        this.options.transformTagName && (o = this.options.transformTagName(o)), n && (s = this.saveTextToParentTag(s, n, i));
+        const a = i.substring(i.lastIndexOf(".") + 1);
+        if (o && this.options.unpairedTags.indexOf(o) !== -1)
+          throw new Error(`Unpaired tag can not be used as closing tag: </${o}>`);
+        let u = 0;
+        a && this.options.unpairedTags.indexOf(a) !== -1 ? (u = i.lastIndexOf(".", i.lastIndexOf(".") - 1), this.tagsNodeStack.pop()) : u = i.lastIndexOf("."), i = i.substring(0, u), n = this.tagsNodeStack.pop(), s = "", r = l;
+      } else if (e[r + 1] === "?") {
+        let l = M(e, r, !1, "?>");
+        if (!l) throw new Error("Pi Tag is not closed.");
+        if (s = this.saveTextToParentTag(s, n, i), !(this.options.ignoreDeclaration && l.tagName === "?xml" || this.options.ignorePiTags)) {
+          const o = new T(l.tagName);
+          o.add(this.options.textNodeName, ""), l.tagName !== l.tagExp && l.attrExpPresent && (o[":@"] = this.buildAttributesMap(l.tagExp, i, l.tagName)), this.addChild(n, o, i, r);
         }
-        if (currentNode) {
-          textData = this.saveTextToParentTag(textData, currentNode, jPath);
-        }
-        const lastTagName = jPath.substring(jPath.lastIndexOf(".") + 1);
-        if (tagName && this.options.unpairedTags.indexOf(tagName) !== -1) {
-          throw new Error(`Unpaired tag can not be used as closing tag: </${tagName}>`);
-        }
-        let propIndex = 0;
-        if (lastTagName && this.options.unpairedTags.indexOf(lastTagName) !== -1) {
-          propIndex = jPath.lastIndexOf(".", jPath.lastIndexOf(".") - 1);
-          this.tagsNodeStack.pop();
-        } else {
-          propIndex = jPath.lastIndexOf(".");
-        }
-        jPath = jPath.substring(0, propIndex);
-        currentNode = this.tagsNodeStack.pop();
-        textData = "";
-        i = closeIndex;
-      } else if (xmlData[i + 1] === "?") {
-        let tagData = readTagExp(xmlData, i, false, "?>");
-        if (!tagData) throw new Error("Pi Tag is not closed.");
-        textData = this.saveTextToParentTag(textData, currentNode, jPath);
-        if (this.options.ignoreDeclaration && tagData.tagName === "?xml" || this.options.ignorePiTags) ;
-        else {
-          const childNode = new XmlNode(tagData.tagName);
-          childNode.add(this.options.textNodeName, "");
-          if (tagData.tagName !== tagData.tagExp && tagData.attrExpPresent) {
-            childNode[":@"] = this.buildAttributesMap(tagData.tagExp, jPath, tagData.tagName);
-          }
-          this.addChild(currentNode, childNode, jPath, i);
-        }
-        i = tagData.closeIndex + 1;
-      } else if (xmlData.substr(i + 1, 3) === "!--") {
-        const endIndex = findClosingIndex(xmlData, "-->", i + 4, "Comment is not closed.");
+        r = l.closeIndex + 1;
+      } else if (e.substr(r + 1, 3) === "!--") {
+        const l = y(e, "-->", r + 4, "Comment is not closed.");
         if (this.options.commentPropName) {
-          const comment = xmlData.substring(i + 4, endIndex - 2);
-          textData = this.saveTextToParentTag(textData, currentNode, jPath);
-          currentNode.add(this.options.commentPropName, [{ [this.options.textNodeName]: comment }]);
+          const o = e.substring(r + 4, l - 2);
+          s = this.saveTextToParentTag(s, n, i), n.add(this.options.commentPropName, [{ [this.options.textNodeName]: o }]);
         }
-        i = endIndex;
-      } else if (xmlData.substr(i + 1, 2) === "!D") {
-        const result = readDocType(xmlData, i);
-        this.docTypeEntities = result.entities;
-        i = result.i;
-      } else if (xmlData.substr(i + 1, 2) === "![") {
-        const closeIndex = findClosingIndex(xmlData, "]]>", i, "CDATA is not closed.") - 2;
-        const tagExp = xmlData.substring(i + 9, closeIndex);
-        textData = this.saveTextToParentTag(textData, currentNode, jPath);
-        let val = this.parseTextData(tagExp, currentNode.tagname, jPath, true, false, true, true);
-        if (val == void 0) val = "";
-        if (this.options.cdataPropName) {
-          currentNode.add(this.options.cdataPropName, [{ [this.options.textNodeName]: tagExp }]);
-        } else {
-          currentNode.add(this.options.textNodeName, val);
-        }
-        i = closeIndex + 2;
+        r = l;
+      } else if (e.substr(r + 1, 2) === "!D") {
+        const l = pe(e, r);
+        this.docTypeEntities = l.entities, r = l.i;
+      } else if (e.substr(r + 1, 2) === "![") {
+        const l = y(e, "]]>", r, "CDATA is not closed.") - 2, o = e.substring(r + 9, l);
+        s = this.saveTextToParentTag(s, n, i);
+        let a = this.parseTextData(o, n.tagname, i, !0, !1, !0, !0);
+        a == null && (a = ""), this.options.cdataPropName ? n.add(this.options.cdataPropName, [{ [this.options.textNodeName]: o }]) : n.add(this.options.textNodeName, a), r = l + 2;
       } else {
-        let result = readTagExp(xmlData, i, this.options.removeNSPrefix);
-        let tagName = result.tagName;
-        const rawTagName = result.rawTagName;
-        let tagExp = result.tagExp;
-        let attrExpPresent = result.attrExpPresent;
-        let closeIndex = result.closeIndex;
-        if (this.options.transformTagName) {
-          tagName = this.options.transformTagName(tagName);
-        }
-        if (currentNode && textData) {
-          if (currentNode.tagname !== "!xml") {
-            textData = this.saveTextToParentTag(textData, currentNode, jPath, false);
+        let l = M(e, r, this.options.removeNSPrefix), o = l.tagName;
+        const a = l.rawTagName;
+        let u = l.tagExp, c = l.attrExpPresent, p = l.closeIndex;
+        this.options.transformTagName && (o = this.options.transformTagName(o)), n && s && n.tagname !== "!xml" && (s = this.saveTextToParentTag(s, n, i, !1));
+        const L = n;
+        L && this.options.unpairedTags.indexOf(L.tagname) !== -1 && (n = this.tagsNodeStack.pop(), i = i.substring(0, i.lastIndexOf("."))), o !== t.tagname && (i += i ? "." + o : o);
+        const S = r;
+        if (this.isItStopNode(this.options.stopNodes, i, o)) {
+          let h = "";
+          if (u.length > 0 && u.lastIndexOf("/") === u.length - 1)
+            o[o.length - 1] === "/" ? (o = o.substr(0, o.length - 1), i = i.substr(0, i.length - 1), u = o) : u = u.substr(0, u.length - 1), r = l.closeIndex;
+          else if (this.options.unpairedTags.indexOf(o) !== -1)
+            r = l.closeIndex;
+          else {
+            const k = this.readStopNodeData(e, a, p + 1);
+            if (!k) throw new Error(`Unexpected end of ${a}`);
+            r = k.i, h = k.tagContent;
           }
-        }
-        const lastTag = currentNode;
-        if (lastTag && this.options.unpairedTags.indexOf(lastTag.tagname) !== -1) {
-          currentNode = this.tagsNodeStack.pop();
-          jPath = jPath.substring(0, jPath.lastIndexOf("."));
-        }
-        if (tagName !== xmlObj.tagname) {
-          jPath += jPath ? "." + tagName : tagName;
-        }
-        const startIndex = i;
-        if (this.isItStopNode(this.options.stopNodes, jPath, tagName)) {
-          let tagContent = "";
-          if (tagExp.length > 0 && tagExp.lastIndexOf("/") === tagExp.length - 1) {
-            if (tagName[tagName.length - 1] === "/") {
-              tagName = tagName.substr(0, tagName.length - 1);
-              jPath = jPath.substr(0, jPath.length - 1);
-              tagExp = tagName;
-            } else {
-              tagExp = tagExp.substr(0, tagExp.length - 1);
-            }
-            i = result.closeIndex;
-          } else if (this.options.unpairedTags.indexOf(tagName) !== -1) {
-            i = result.closeIndex;
-          } else {
-            const result2 = this.readStopNodeData(xmlData, rawTagName, closeIndex + 1);
-            if (!result2) throw new Error(`Unexpected end of ${rawTagName}`);
-            i = result2.i;
-            tagContent = result2.tagContent;
-          }
-          const childNode = new XmlNode(tagName);
-          if (tagName !== tagExp && attrExpPresent) {
-            childNode[":@"] = this.buildAttributesMap(tagExp, jPath, tagName);
-          }
-          if (tagContent) {
-            tagContent = this.parseTextData(tagContent, tagName, jPath, true, attrExpPresent, true, true);
-          }
-          jPath = jPath.substr(0, jPath.lastIndexOf("."));
-          childNode.add(this.options.textNodeName, tagContent);
-          this.addChild(currentNode, childNode, jPath, startIndex);
+          const _ = new T(o);
+          o !== u && c && (_[":@"] = this.buildAttributesMap(u, i, o)), h && (h = this.parseTextData(h, o, i, !0, c, !0, !0)), i = i.substr(0, i.lastIndexOf(".")), _.add(this.options.textNodeName, h), this.addChild(n, _, i, S);
         } else {
-          if (tagExp.length > 0 && tagExp.lastIndexOf("/") === tagExp.length - 1) {
-            if (tagName[tagName.length - 1] === "/") {
-              tagName = tagName.substr(0, tagName.length - 1);
-              jPath = jPath.substr(0, jPath.length - 1);
-              tagExp = tagName;
-            } else {
-              tagExp = tagExp.substr(0, tagExp.length - 1);
-            }
-            if (this.options.transformTagName) {
-              tagName = this.options.transformTagName(tagName);
-            }
-            const childNode = new XmlNode(tagName);
-            if (tagName !== tagExp && attrExpPresent) {
-              childNode[":@"] = this.buildAttributesMap(tagExp, jPath, tagName);
-            }
-            this.addChild(currentNode, childNode, jPath, startIndex);
-            jPath = jPath.substr(0, jPath.lastIndexOf("."));
+          if (u.length > 0 && u.lastIndexOf("/") === u.length - 1) {
+            o[o.length - 1] === "/" ? (o = o.substr(0, o.length - 1), i = i.substr(0, i.length - 1), u = o) : u = u.substr(0, u.length - 1), this.options.transformTagName && (o = this.options.transformTagName(o));
+            const h = new T(o);
+            o !== u && c && (h[":@"] = this.buildAttributesMap(u, i, o)), this.addChild(n, h, i, S), i = i.substr(0, i.lastIndexOf("."));
           } else {
-            const childNode = new XmlNode(tagName);
-            this.tagsNodeStack.push(currentNode);
-            if (tagName !== tagExp && attrExpPresent) {
-              childNode[":@"] = this.buildAttributesMap(tagExp, jPath, tagName);
-            }
-            this.addChild(currentNode, childNode, jPath, startIndex);
-            currentNode = childNode;
+            const h = new T(o);
+            this.tagsNodeStack.push(n), o !== u && c && (h[":@"] = this.buildAttributesMap(u, i, o)), this.addChild(n, h, i, S), n = h;
           }
-          textData = "";
-          i = closeIndex;
+          s = "", r = p;
         }
       }
-    } else {
-      textData += xmlData[i];
-    }
-  }
-  return xmlObj.child;
+    else
+      s += e[r];
+  return t.child;
 };
-function addChild(currentNode, childNode, jPath, startIndex) {
-  if (!this.options.captureMetaData) startIndex = void 0;
-  const result = this.options.updateTag(childNode.tagname, jPath, childNode[":@"]);
-  if (result === false) ;
-  else if (typeof result === "string") {
-    childNode.tagname = result;
-    currentNode.addChild(childNode, startIndex);
-  } else {
-    currentNode.addChild(childNode, startIndex);
-  }
+function je(e, t, n, s) {
+  this.options.captureMetaData || (s = void 0);
+  const i = this.options.updateTag(t.tagname, n, t[":@"]);
+  i === !1 || (typeof i == "string" && (t.tagname = i), e.addChild(t, s));
 }
-const replaceEntitiesValue = function(val) {
+const Re = function(e) {
   if (this.options.processEntities) {
-    for (let entityName in this.docTypeEntities) {
-      const entity = this.docTypeEntities[entityName];
-      val = val.replace(entity.regx, entity.val);
+    for (let t in this.docTypeEntities) {
+      const n = this.docTypeEntities[t];
+      e = e.replace(n.regx, n.val);
     }
-    for (let entityName in this.lastEntities) {
-      const entity = this.lastEntities[entityName];
-      val = val.replace(entity.regex, entity.val);
+    for (let t in this.lastEntities) {
+      const n = this.lastEntities[t];
+      e = e.replace(n.regex, n.val);
     }
-    if (this.options.htmlEntities) {
-      for (let entityName in this.htmlEntities) {
-        const entity = this.htmlEntities[entityName];
-        val = val.replace(entity.regex, entity.val);
+    if (this.options.htmlEntities)
+      for (let t in this.htmlEntities) {
+        const n = this.htmlEntities[t];
+        e = e.replace(n.regex, n.val);
       }
-    }
-    val = val.replace(this.ampEntity.regex, this.ampEntity.val);
+    e = e.replace(this.ampEntity.regex, this.ampEntity.val);
   }
-  return val;
+  return e;
 };
-function saveTextToParentTag(textData, currentNode, jPath, isLeafNode) {
-  if (textData) {
-    if (isLeafNode === void 0) isLeafNode = currentNode.child.length === 0;
-    textData = this.parseTextData(
-      textData,
-      currentNode.tagname,
-      jPath,
-      false,
-      currentNode[":@"] ? Object.keys(currentNode[":@"]).length !== 0 : false,
-      isLeafNode
-    );
-    if (textData !== void 0 && textData !== "")
-      currentNode.add(this.options.textNodeName, textData);
-    textData = "";
-  }
-  return textData;
+function $e(e, t, n, s) {
+  return e && (s === void 0 && (s = t.child.length === 0), e = this.parseTextData(
+    e,
+    t.tagname,
+    n,
+    !1,
+    t[":@"] ? Object.keys(t[":@"]).length !== 0 : !1,
+    s
+  ), e !== void 0 && e !== "" && t.add(this.options.textNodeName, e), e = ""), e;
 }
-function isItStopNode(stopNodes, jPath, currentTagName) {
-  const allNodesExp = "*." + currentTagName;
-  for (const stopNodePath in stopNodes) {
-    const stopNodeExp = stopNodes[stopNodePath];
-    if (allNodesExp === stopNodeExp || jPath === stopNodeExp) return true;
+function Be(e, t, n) {
+  const s = "*." + n;
+  for (const i in e) {
+    const r = e[i];
+    if (s === r || t === r) return !0;
   }
-  return false;
+  return !1;
 }
-function tagExpWithClosingIndex(xmlData, i, closingChar = ">") {
-  let attrBoundary;
-  let tagExp = "";
-  for (let index = i; index < xmlData.length; index++) {
-    let ch = xmlData[index];
-    if (attrBoundary) {
-      if (ch === attrBoundary) attrBoundary = "";
-    } else if (ch === '"' || ch === "'") {
-      attrBoundary = ch;
-    } else if (ch === closingChar[0]) {
-      if (closingChar[1]) {
-        if (xmlData[index + 1] === closingChar[1]) {
+function Le(e, t, n = ">") {
+  let s, i = "";
+  for (let r = t; r < e.length; r++) {
+    let f = e[r];
+    if (s)
+      f === s && (s = "");
+    else if (f === '"' || f === "'")
+      s = f;
+    else if (f === n[0])
+      if (n[1]) {
+        if (e[r + 1] === n[1])
           return {
-            data: tagExp,
-            index
+            data: i,
+            index: r
           };
-        }
-      } else {
+      } else
         return {
-          data: tagExp,
-          index
+          data: i,
+          index: r
         };
-      }
-    } else if (ch === "	") {
-      ch = " ";
-    }
-    tagExp += ch;
+    else f === "	" && (f = " ");
+    i += f;
   }
 }
-function findClosingIndex(xmlData, str, i, errMsg) {
-  const closingIndex = xmlData.indexOf(str, i);
-  if (closingIndex === -1) {
-    throw new Error(errMsg);
-  } else {
-    return closingIndex + str.length - 1;
-  }
+function y(e, t, n, s) {
+  const i = e.indexOf(t, n);
+  if (i === -1)
+    throw new Error(s);
+  return i + t.length - 1;
 }
-function readTagExp(xmlData, i, removeNSPrefix, closingChar = ">") {
-  const result = tagExpWithClosingIndex(xmlData, i + 1, closingChar);
-  if (!result) return;
-  let tagExp = result.data;
-  const closeIndex = result.index;
-  const separatorIndex = tagExp.search(/\s/);
-  let tagName = tagExp;
-  let attrExpPresent = true;
-  if (separatorIndex !== -1) {
-    tagName = tagExp.substring(0, separatorIndex);
-    tagExp = tagExp.substring(separatorIndex + 1).trimStart();
-  }
-  const rawTagName = tagName;
-  if (removeNSPrefix) {
-    const colonIndex = tagName.indexOf(":");
-    if (colonIndex !== -1) {
-      tagName = tagName.substr(colonIndex + 1);
-      attrExpPresent = tagName !== result.data.substr(colonIndex + 1);
-    }
+function M(e, t, n, s = ">") {
+  const i = Le(e, t + 1, s);
+  if (!i) return;
+  let r = i.data;
+  const f = i.index, l = r.search(/\s/);
+  let o = r, a = !0;
+  l !== -1 && (o = r.substring(0, l), r = r.substring(l + 1).trimStart());
+  const u = o;
+  if (n) {
+    const c = o.indexOf(":");
+    c !== -1 && (o = o.substr(c + 1), a = o !== i.data.substr(c + 1));
   }
   return {
-    tagName,
-    tagExp,
-    closeIndex,
-    attrExpPresent,
-    rawTagName
+    tagName: o,
+    tagExp: r,
+    closeIndex: f,
+    attrExpPresent: a,
+    rawTagName: u
   };
 }
-function readStopNodeData(xmlData, tagName, i) {
-  const startIndex = i;
-  let openTagCount = 1;
-  for (; i < xmlData.length; i++) {
-    if (xmlData[i] === "<") {
-      if (xmlData[i + 1] === "/") {
-        const closeIndex = findClosingIndex(xmlData, ">", i, `${tagName} is not closed`);
-        let closeTagName = xmlData.substring(i + 2, closeIndex).trim();
-        if (closeTagName === tagName) {
-          openTagCount--;
-          if (openTagCount === 0) {
-            return {
-              tagContent: xmlData.substring(startIndex, i),
-              i: closeIndex
-            };
-          }
-        }
-        i = closeIndex;
-      } else if (xmlData[i + 1] === "?") {
-        const closeIndex = findClosingIndex(xmlData, "?>", i + 1, "StopNode is not closed.");
-        i = closeIndex;
-      } else if (xmlData.substr(i + 1, 3) === "!--") {
-        const closeIndex = findClosingIndex(xmlData, "-->", i + 3, "StopNode is not closed.");
-        i = closeIndex;
-      } else if (xmlData.substr(i + 1, 2) === "![") {
-        const closeIndex = findClosingIndex(xmlData, "]]>", i, "StopNode is not closed.") - 2;
-        i = closeIndex;
-      } else {
-        const tagData = readTagExp(xmlData, i, ">");
-        if (tagData) {
-          const openTagName = tagData && tagData.tagName;
-          if (openTagName === tagName && tagData.tagExp[tagData.tagExp.length - 1] !== "/") {
-            openTagCount++;
-          }
-          i = tagData.closeIndex;
-        }
+function Ue(e, t, n) {
+  const s = n;
+  let i = 1;
+  for (; n < e.length; n++)
+    if (e[n] === "<")
+      if (e[n + 1] === "/") {
+        const r = y(e, ">", n, `${t} is not closed`);
+        if (e.substring(n + 2, r).trim() === t && (i--, i === 0))
+          return {
+            tagContent: e.substring(s, n),
+            i: r
+          };
+        n = r;
+      } else if (e[n + 1] === "?")
+        n = y(e, "?>", n + 1, "StopNode is not closed.");
+      else if (e.substr(n + 1, 3) === "!--")
+        n = y(e, "-->", n + 3, "StopNode is not closed.");
+      else if (e.substr(n + 1, 2) === "![")
+        n = y(e, "]]>", n, "StopNode is not closed.") - 2;
+      else {
+        const r = M(e, n, ">");
+        r && ((r && r.tagName) === t && r.tagExp[r.tagExp.length - 1] !== "/" && i++, n = r.closeIndex);
+      }
+}
+function V(e, t, n) {
+  if (t && typeof e == "string") {
+    const s = e.trim();
+    return s === "true" ? !0 : s === "false" ? !1 : Ie(e, n);
+  } else
+    return ne(e) ? e : "";
+}
+const F = T.getMetaDataSymbol();
+function Ye(e, t) {
+  return G(e, t);
+}
+function G(e, t, n) {
+  let s;
+  const i = {};
+  for (let r = 0; r < e.length; r++) {
+    const f = e[r], l = Xe(f);
+    let o = "";
+    if (n === void 0 ? o = l : o = n + "." + l, l === t.textNodeName)
+      s === void 0 ? s = f[l] : s += "" + f[l];
+    else {
+      if (l === void 0)
+        continue;
+      if (f[l]) {
+        let a = G(f[l], t, o);
+        const u = xe(a, t);
+        f[F] !== void 0 && (a[F] = f[F]), f[":@"] ? Ze(a, f[":@"], o, t) : Object.keys(a).length === 1 && a[t.textNodeName] !== void 0 && !t.alwaysCreateTextNode ? a = a[t.textNodeName] : Object.keys(a).length === 0 && (t.alwaysCreateTextNode ? a[t.textNodeName] = "" : a = ""), i[l] !== void 0 && i.hasOwnProperty(l) ? (Array.isArray(i[l]) || (i[l] = [i[l]]), i[l].push(a)) : t.isArray(l, o, u) ? i[l] = [a] : i[l] = a;
       }
     }
   }
+  return typeof s == "string" ? s.length > 0 && (i[t.textNodeName] = s) : s !== void 0 && (i[t.textNodeName] = s), i;
 }
-function parseValue(val, shouldParse, options) {
-  if (shouldParse && typeof val === "string") {
-    const newval = val.trim();
-    if (newval === "true") return true;
-    else if (newval === "false") return false;
-    else return toNumber(val, options);
-  } else {
-    if (isExist(val)) {
-      return val;
-    } else {
-      return "";
+function Xe(e) {
+  const t = Object.keys(e);
+  for (let n = 0; n < t.length; n++) {
+    const s = t[n];
+    if (s !== ":@") return s;
+  }
+}
+function Ze(e, t, n, s) {
+  if (t) {
+    const i = Object.keys(t), r = i.length;
+    for (let f = 0; f < r; f++) {
+      const l = i[f];
+      s.isArray(l, n + "." + l, !0, !0) ? e[l] = [t[l]] : e[l] = t[l];
     }
   }
 }
-const METADATA_SYMBOL = XmlNode.getMetaDataSymbol();
-function prettify(node, options) {
-  return compress(node, options);
+function xe(e, t) {
+  const { textNodeName: n } = t, s = Object.keys(e).length;
+  return !!(s === 0 || s === 1 && (e[n] || typeof e[n] == "boolean" || e[n] === 0));
 }
-function compress(arr, options, jPath) {
-  let text;
-  const compressedObj = {};
-  for (let i = 0; i < arr.length; i++) {
-    const tagObj = arr[i];
-    const property = propName(tagObj);
-    let newJpath = "";
-    if (jPath === void 0) newJpath = property;
-    else newJpath = jPath + "." + property;
-    if (property === options.textNodeName) {
-      if (text === void 0) text = tagObj[property];
-      else text += "" + tagObj[property];
-    } else if (property === void 0) {
-      continue;
-    } else if (tagObj[property]) {
-      let val = compress(tagObj[property], options, newJpath);
-      const isLeaf = isLeafTag(val, options);
-      if (tagObj[METADATA_SYMBOL] !== void 0) {
-        val[METADATA_SYMBOL] = tagObj[METADATA_SYMBOL];
-      }
-      if (tagObj[":@"]) {
-        assignAttributes(val, tagObj[":@"], newJpath, options);
-      } else if (Object.keys(val).length === 1 && val[options.textNodeName] !== void 0 && !options.alwaysCreateTextNode) {
-        val = val[options.textNodeName];
-      } else if (Object.keys(val).length === 0) {
-        if (options.alwaysCreateTextNode) val[options.textNodeName] = "";
-        else val = "";
-      }
-      if (compressedObj[property] !== void 0 && compressedObj.hasOwnProperty(property)) {
-        if (!Array.isArray(compressedObj[property])) {
-          compressedObj[property] = [compressedObj[property]];
-        }
-        compressedObj[property].push(val);
-      } else {
-        if (options.isArray(property, newJpath, isLeaf)) {
-          compressedObj[property] = [val];
-        } else {
-          compressedObj[property] = val;
-        }
-      }
-    }
-  }
-  if (typeof text === "string") {
-    if (text.length > 0) compressedObj[options.textNodeName] = text;
-  } else if (text !== void 0) compressedObj[options.textNodeName] = text;
-  return compressedObj;
-}
-function propName(obj) {
-  const keys = Object.keys(obj);
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
-    if (key !== ":@") return key;
-  }
-}
-function assignAttributes(obj, attrMap, jpath, options) {
-  if (attrMap) {
-    const keys = Object.keys(attrMap);
-    const len = keys.length;
-    for (let i = 0; i < len; i++) {
-      const atrrName = keys[i];
-      if (options.isArray(atrrName, jpath + "." + atrrName, true, true)) {
-        obj[atrrName] = [attrMap[atrrName]];
-      } else {
-        obj[atrrName] = attrMap[atrrName];
-      }
-    }
-  }
-}
-function isLeafTag(obj, options) {
-  const { textNodeName } = options;
-  const propCount = Object.keys(obj).length;
-  if (propCount === 0) {
-    return true;
-  }
-  if (propCount === 1 && (obj[textNodeName] || typeof obj[textNodeName] === "boolean" || obj[textNodeName] === 0)) {
-    return true;
-  }
-  return false;
-}
-class XMLParser {
-  constructor(options) {
-    this.externalEntities = {};
-    this.options = buildOptions(options);
+class We {
+  constructor(t) {
+    this.externalEntities = {}, this.options = he(t);
   }
   /**
    * Parse XML dats to JS object 
    * @param {string|Buffer} xmlData 
    * @param {boolean|Object} validationOption 
    */
-  parse(xmlData, validationOption) {
-    if (typeof xmlData === "string") ;
-    else if (xmlData.toString) {
-      xmlData = xmlData.toString();
-    } else {
+  parse(t, n) {
+    if (typeof t != "string") if (t.toString)
+      t = t.toString();
+    else
       throw new Error("XML data is accepted in String or Bytes[] form.");
+    if (n) {
+      n === !0 && (n = {});
+      const r = se(t, n);
+      if (r !== !0)
+        throw Error(`${r.err.msg}:${r.err.line}:${r.err.col}`);
     }
-    if (validationOption) {
-      if (validationOption === true) validationOption = {};
-      const result = validate(xmlData, validationOption);
-      if (result !== true) {
-        throw Error(`${result.err.msg}:${result.err.line}:${result.err.col}`);
-      }
-    }
-    const orderedObjParser = new OrderedObjParser(this.options);
-    orderedObjParser.addExternalEntities(this.externalEntities);
-    const orderedResult = orderedObjParser.parseXml(xmlData);
-    if (this.options.preserveOrder || orderedResult === void 0) return orderedResult;
-    else return prettify(orderedResult, this.options);
+    const s = new Ce(this.options);
+    s.addExternalEntities(this.externalEntities);
+    const i = s.parseXml(t);
+    return this.options.preserveOrder || i === void 0 ? i : Ye(i, this.options);
   }
   /**
    * Add Entity which is not by default supported by this library
    * @param {string} key 
    * @param {string} value 
    */
-  addEntity(key, value) {
-    if (value.indexOf("&") !== -1) {
+  addEntity(t, n) {
+    if (n.indexOf("&") !== -1)
       throw new Error("Entity value can't have '&'");
-    } else if (key.indexOf("&") !== -1 || key.indexOf(";") !== -1) {
+    if (t.indexOf("&") !== -1 || t.indexOf(";") !== -1)
       throw new Error("An entity must be set without '&' and ';'. Eg. use '#xD' for '&#xD;'");
-    } else if (value === "&") {
+    if (n === "&")
       throw new Error("An entity with value '&' is not permitted");
-    } else {
-      this.externalEntities[key] = value;
-    }
+    this.externalEntities[t] = n;
   }
   /**
    * Returns a Symbol that can be used to access the metadata
@@ -1325,106 +884,93 @@ class XMLParser {
    * is true in the options.
    */
   static getMetaDataSymbol() {
-    return XmlNode.getMetaDataSymbol();
+    return T.getMetaDataSymbol();
   }
 }
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-process.env.APP_ROOT = path.join(__dirname, "..");
-const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
-const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
-const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
-let win;
-function createWindow() {
-  win = new BrowserWindow({
-    icon: path.join(process.env.VITE_PUBLIC, "electron-vite.svg"),
+const qe = !P.isPackaged;
+let I = null;
+function Ge() {
+  const e = qe ? N.join(B, "../../backend/dist/xml_genius_backend") : N.join(process.resourcesPath, "backend/xml_genius_backend");
+  console.log(`Attempting to run backend at: ${e}`), I = H(e), I.stdout.on("data", (t) => {
+    console.log(`Python Backend: ${t.toString()}`);
+  }), I.stderr.on("data", (t) => {
+    console.error(`Python Backend Error: ${t.toString()}`);
+  });
+}
+const B = N.dirname(z(import.meta.url));
+process.env.APP_ROOT = N.join(B, "..");
+const j = process.env.VITE_DEV_SERVER_URL, De = N.join(process.env.APP_ROOT, "dist-electron"), J = N.join(process.env.APP_ROOT, "dist");
+process.env.VITE_PUBLIC = j ? N.join(process.env.APP_ROOT, "public") : J;
+let b;
+function K() {
+  b = new x({
+    icon: N.join(process.env.VITE_PUBLIC, "electron-vite.svg"),
     width: 700,
     height: 660,
     minWidth: 700,
     minHeight: 660,
     webPreferences: {
-      preload: path.join(__dirname, "preload.mjs")
+      preload: N.join(B, "preload.mjs")
     }
-  });
-  win.webContents.on("did-finish-load", () => {
-    win == null ? void 0 : win.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
-  });
-  if (VITE_DEV_SERVER_URL) {
-    win.loadURL(VITE_DEV_SERVER_URL);
-  } else {
-    win.loadFile(path.join(RENDERER_DIST, "index.html"));
-  }
-  ipcMain.handle("dialog:openFile", async () => {
-    if (!win) {
+  }), b.webContents.on("did-finish-load", () => {
+    b == null || b.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
+  }), j ? b.loadURL(j) : b.loadFile(N.join(J, "index.html")), v.handle("dialog:openFile", async () => {
+    if (!b)
       return null;
-    }
-    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    const { canceled: e, filePaths: t } = await Q.showOpenDialog(b, {
       properties: ["openFile", "openDirectory"],
       filters: [
         { name: "Markup Files", extensions: ["xml", "html"] }
       ]
     });
-    if (canceled || !filePaths[0]) {
+    if (e || !t[0])
       return null;
-    }
-    const path2 = filePaths[0];
-    const stats = fs.statSync(path2);
-    const type = stats.isDirectory() ? "folder" : "file";
-    return { path: path2, type };
-  });
-  ipcMain.handle("xml:parse", async (event, filePath) => {
+    const n = t[0], i = O.statSync(n).isDirectory() ? "folder" : "file";
+    return { path: n, type: i };
+  }), v.handle("xml:parse", async (e, t) => {
     try {
-      const xmlData = fs.readFileSync(filePath, "utf-8");
-      const parser = new XMLParser({
-        ignoreAttributes: false,
+      const n = O.readFileSync(t, "utf-8");
+      return { status: "success", data: new We({
+        ignoreAttributes: !1,
         // Keep attributes
         attributeNamePrefix: "@_",
         // Prefix attributes to distinguish them
-        allowBooleanAttributes: true,
+        allowBooleanAttributes: !0,
         // parseAttributeValue: true,
-        trimValues: true
+        trimValues: !0
         // parseTagValue: true,
-      });
-      const jsonObj = parser.parse(xmlData);
-      return { status: "success", data: jsonObj };
-    } catch (error) {
-      console.error("Failed to parse XML file:", error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return { status: "error", message: errorMessage };
+      }).parse(n) };
+    } catch (n) {
+      return console.error("Failed to parse XML file:", n), { status: "error", message: n instanceof Error ? n.message : String(n) };
     }
-  });
-  ipcMain.handle("file:read", async (event, filePath) => {
+  }), v.handle("file:read", async (e, t) => {
     try {
-      return fs.readFileSync(filePath, "utf-8");
-    } catch (error) {
-      console.error("Failed to read file:", error);
-      return null;
+      return O.readFileSync(t, "utf-8");
+    } catch (n) {
+      return console.error("Failed to read file:", n), null;
     }
-  });
-  ipcMain.handle("file:write", async (event, filePath, content) => {
+  }), v.handle("file:write", async (e, t, n) => {
     try {
-      fs.writeFileSync(filePath, content, "utf-8");
-      return { status: "success" };
-    } catch (error) {
-      console.error("Failed to write file:", error);
-      return { status: "error", message: error };
+      return O.writeFileSync(t, n, "utf-8"), { status: "success" };
+    } catch (s) {
+      return console.error("Failed to write file:", s), { status: "error", message: s };
     }
   });
 }
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-    win = null;
-  }
+P.on("window-all-closed", () => {
+  process.platform !== "darwin" && (P.quit(), b = null);
 });
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
+P.on("activate", () => {
+  x.getAllWindows().length === 0 && K();
 });
-app.whenReady().then(createWindow);
+P.whenReady().then(() => {
+  Ge(), K();
+});
+P.on("will-quit", () => {
+  I && (console.log("Killing Python backend..."), I.kill(), I = null);
+});
 export {
-  MAIN_DIST,
-  RENDERER_DIST,
-  VITE_DEV_SERVER_URL
+  De as MAIN_DIST,
+  J as RENDERER_DIST,
+  j as VITE_DEV_SERVER_URL
 };
