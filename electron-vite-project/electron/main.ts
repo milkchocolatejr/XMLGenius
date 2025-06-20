@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import {ipcMain, dialog } from 'electron'
 import fs from 'fs';
+import { XMLParser } from 'fast-xml-parser';
+
 
 // const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -39,7 +41,7 @@ function createWindow() {
   } else {
     win.loadFile(path.join(RENDERER_DIST, 'index.html'))
   }
-  
+
 ipcMain.handle('dialog:openFile', async () => {
   if (!win) {
     return null;
@@ -60,6 +62,55 @@ ipcMain.handle('dialog:openFile', async () => {
   const type = stats.isDirectory() ? 'folder' : 'file';
 
   return { path, type };
+});
+
+ipcMain.handle('xml:parse', async (event, filePath) => {
+  try {
+    // Read the file content from the path provided by the frontend
+    const xmlData = fs.readFileSync(filePath, 'utf-8');
+
+    // Configure the parser
+    const parser = new XMLParser({
+      ignoreAttributes: false, // Keep attributes
+      attributeNamePrefix: "@_", // Prefix attributes to distinguish them
+      allowBooleanAttributes: true,
+      // parseAttributeValue: true,
+      trimValues: true,
+      // parseTagValue: true,
+    });
+
+    // Parse the XML into a JavaScript object
+    const jsonObj = parser.parse(xmlData);
+
+    // Send the parsed object back to the frontend
+    return { status: 'success', data: jsonObj };
+
+  } catch (error) {
+    console.error('Failed to parse XML file:', error);
+    // Send an error object back if anything goes wrong
+    const errorMessage = (error instanceof Error) ? error.message : String(error);
+    return { status: 'error', message: errorMessage };
+  }
+});
+
+ipcMain.handle('file:read', async (event, filePath) => {
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    console.error('Failed to read file:', error);
+    return null;
+  }
+});
+
+// Handler to write new content to a file
+ipcMain.handle('file:write', async (event, filePath, content) => {
+  try {
+    fs.writeFileSync(filePath, content, 'utf-8');
+    return { status: 'success' };
+  } catch (error) {
+    console.error('Failed to write file:', error);
+    return { status: 'error', message: error };
+  }
 });
 }
 

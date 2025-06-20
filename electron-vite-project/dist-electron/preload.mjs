@@ -21,5 +21,8 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   // ...
 });
 electron.contextBridge.exposeInMainWorld("api", {
-  openFile: () => electron.ipcRenderer.invoke("dialog:openFile")
+  openFile: () => electron.ipcRenderer.invoke("dialog:openFile"),
+  parseXML: (filePath) => electron.ipcRenderer.invoke("xml:parse", filePath),
+  readFile: (filePath) => electron.ipcRenderer.invoke("file:read", filePath),
+  writeFile: (filePath, content) => electron.ipcRenderer.invoke("file:write", filePath, content)
 });

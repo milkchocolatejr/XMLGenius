@@ -1,0 +1,49 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #111827;
+}
+.header {
+  padding: 1rem 2rem;
+  border-bottom: 1px solid #374151;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  background-color: #1f2937;
+}
+.title {
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+.actions {
+  display: flex;
+  gap: 1rem;
+}
+.button {
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.backButton {
+  background-color: #4b5563;
+  color: white;
+}
+.backButton:hover {
+  background-color: #6b7280;
+}
+.saveButton {
+  background-color: #16a34a;
+  color: white;
+}
+.saveButton:hover {
+  background-color: #15803d;
+}
+.editorContainer {
+  flex-grow: 1;
+  overflow: hidden; /* Important for the editor to size correctly */
+}

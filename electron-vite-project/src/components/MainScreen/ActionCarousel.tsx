@@ -6,10 +6,10 @@ const LeftArrow = () => <span>&#x2190;</span>;
 const RightArrow = () => <span>&#x2192;</span>;
 
 const actions = [
-  { id: 'validate', title: 'Validate File/Folder', description: 'Check for well-formed XML and validate against a schema.' },
+  { id: 'validate', title: 'Validate File/Folder', description: 'Check for well-formed XML and validate against a schema. Works with non self-closing tags' },
   { id: 'display', title: 'Display as Tree', description: 'Visualize the XML document as an interactive node tree.' },
-  { id: 'add_node', title: 'Add Node', description: 'Insert a new node into the XML document.' },
-  { id: 'remove_node', title: 'Remove Node', description: 'Delete a node from the XML document using its path.' },
+  { id: 'find_node', title: 'Find a Node', description: 'Finds a node given a tag or path' },
+  { id: 'add_and_remove_node', title: 'Add & Remove Node', description: 'Opens up a text editor to manipulate a xml document quickly' },
 ];
 
 const ACTIONS_TO_SHOW = 2;

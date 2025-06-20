@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Library>
+  <Books>
+    <Book title="1984" author="George Orwell">
+      <Summary>A dystopian novel set in a totalitarian society.
+    </Book>
+    <Book title="Brave New World" author="Aldous Huxley"/>
+    <Book title="Fahrenheit 451" author Ray Bradbury>
+  </Books
+  <Magazines>
+    <Magazine title="Nature">
+      <Issue number="302" date="2024-12-01">
+    </Magazine>
+    <Magazine title="Science">
+  </Magazines>
+</Libraryy>
