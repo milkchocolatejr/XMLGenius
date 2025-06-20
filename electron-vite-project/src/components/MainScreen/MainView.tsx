@@ -27,31 +27,38 @@ const MainView = () => {
 
         console.log(`Sending command: ${selectedAction} for path: ${filePath}`);
 
-        try {
-            const response = await fetch('http://127.0.0.1:8000/process', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    filePath: filePath,
-                    command: selectedAction,
-                }),
-            });
+        if (selectedAction === 'validate') {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/validate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        filePath: filePath,
+                        command: selectedAction,
+                    }),
+                });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('Response from backend:', result);
+
+                // TODO: Here you can navigate to a new view to display the results
+
+            } catch (error) {
+                console.error('Failed to connect to the backend:', error);
+                // TODO: Show an error message to the user in the UI
             }
-
-            const result = await response.json();
-            console.log('Response from backend:', result);
-
-            // TODO: Here you can navigate to a new view to display the results
-
-        } catch (error) {
-            console.error('Failed to connect to the backend:', error);
-            // TODO: Show an error message to the user in the UI
         }
+        else if (selectedAction === 'display') {
+            window.location.href = '.VizualizeScreen/MainView';
+            
+        }
+
     };
 
     const [selectedAction, setSelectedAction] = useState<string | null>(null);

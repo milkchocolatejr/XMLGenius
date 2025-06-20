@@ -22,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.post("/process")
+@app.post("/validate")
 async def process_file(request: ProcessRequest):
     """
     Receives a file path and a command from the frontend,

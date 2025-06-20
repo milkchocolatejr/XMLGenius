@@ -175,12 +175,12 @@ int main(int argc, char *argv[]){
         int status = validate(argv[3]);
         printf("Validation complete.\n");
         if(status == 0){
-            printf("    INVALID XML DOCUMENT\n");
-            printf("    ERROR AT NODE : %s\n", badOpenTag);
-            printf("    CLOSING TAG : %s\n", badCloseTag);
+            printf("    @INVALID XML DOCUMENT\n");
+            printf("    @ERROR AT NODE : %s\n", badOpenTag);
+            printf("    @CLOSING TAG : %s\n", badCloseTag);
         }
         if(status == 1){
-            printf("    VALID XML DOCUMENT\n");
+            printf("    @VALID XML DOCUMENT\n");
         }
     }
     else if(strcmp(command, "add") == 0){
