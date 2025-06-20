@@ -92,6 +92,26 @@ ipcMain.handle('xml:parse', async (event, filePath) => {
     return { status: 'error', message: errorMessage };
   }
 });
+
+ipcMain.handle('file:read', async (event, filePath) => {
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    console.error('Failed to read file:', error);
+    return null;
+  }
+});
+
+// Handler to write new content to a file
+ipcMain.handle('file:write', async (event, filePath, content) => {
+  try {
+    fs.writeFileSync(filePath, content, 'utf-8');
+    return { status: 'success' };
+  } catch (error) {
+    console.error('Failed to write file:', error);
+    return { status: 'error', message: error };
+  }
+});
 }
 
 app.on('window-all-closed', () => {

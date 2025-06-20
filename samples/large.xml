@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GlobalUniversityNetwork>
+  <Continent name="North America">
+    <Country name="USA">
+      <University name="Tech University of America" established="1885">
+        <Faculty name="Engineering">
+          <Department name="Computer Science">
+            <Professor id="P001" name="Dr. Alice Johnson" tenure="true">
+              <Course code="CS101" title="Intro to Programming" credits="3">
+                <Student id="S001" name="John Doe" year="1" GPA="3.8"/>
+                <Student id="S002" name="Jane Smith" year="1" GPA="3.9"/>
+              </Course>
+              <Course code="CS202" title="Data Structures" credits="4">
+                <Student id="S003" name="Emily Nguyen" year="2" GPA="3.7"/>
+              </Course>
+            </Professor>
+            <Professor id="P002" name="Dr. Mark Lee" tenure="false">
+              <Course code="CS301" title="Algorithms" credits="4">
+                <Student id="S004" name="Tom Hardy" year="3" GPA="3.6"/>
+              </Course>
+            </Professor>
+          </Department>
+          <Department name="Electrical Engineering">
+            <Professor id="P003" name="Dr. Sara Khan" tenure="true">
+              <Course code="EE201" title="Circuits" credits="3"/>
+            </Professor>
+          </Department>
+        </Faculty>
+        <Faculty name="Arts and Humanities">
+          <Department name="Philosophy">
+            <Professor id="P004" name="Dr. Carl Peters" tenure="true"/>
+          </Department>
+        </Faculty>
+      </University>
+    </Country>
+    <Country name="Canada">
+      <University name="Maple Leaf Institute" established="1967">
+        <Faculty name="Science">
+          <Department name="Physics">
+            <Professor id="P005" name="Dr. Linda Bell" tenure="false">
+              <Course code="PH101" title="Classical Mechanics" credits="3"/>
+            </Professor>
+          </Department>
+        </Faculty>
+      </University>
+    </Country>
+  </Continent>
+
+  <Continent name="Europe">
+    <Country name="Germany">
+      <University name="Berlin Institute of Technology" established="1879">
+        <Faculty name="Mechanical Engineering">
+          <Department name="Thermodynamics">
+            <Professor id="P006" name="Dr. Heinz Müller" tenure="true"/>
+          </Department>
+        </Faculty>
+      </University>
+    </Country>
+    <Country name="France">
+      <University name="Université de Paris" established="1150">
+        <Faculty name="Literature">
+          <Department name="Modern Languages">
+            <Professor id="P007" name="Dr. Marie Dubois" tenure="true">
+              <Course code="FR201" title="Advanced French Literature" credits="4">
+                <Student id="S005" name="Luc Moreau" year="4" GPA="3.9"/>
+              </Course>
+            </Professor>
+          </Department>
+        </Faculty>
+      </University>
+    </Country>
+  </Continent>
+
+  <Continent name="Asia">
+    <Country name="India">
+      <University name="Indian Institute of Science" established="1909">
+        <Faculty name="Mathematics">
+          <Department name="Applied Math">
+            <Professor id="P008" name="Dr. Asha Patel" tenure="false">
+              <Course code="MATH301" title="Numerical Analysis" credits="3">
+                <Student id="S006" name="Ravi Verma" year="3" GPA="3.5"/>
+              </Course>
+            </Professor>
+          </Department>
+        </Faculty>
+      </University>
+    </Country>
+    <Country name="Japan">
+      <University name="Tokyo University" established="1877">
+        <Faculty name="Architecture">
+          <Department name="Urban Design">
+            <Professor id="P009" name="Dr. Kenji Tanaka" tenure="true"/>
+          </Department>
+        </Faculty>
+      </University>
+    </Country>
+  </Continent>
+</GlobalUniversityNetwork>

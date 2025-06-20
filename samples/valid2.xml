@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<publishing_catalog>
+    <region name="North America">
+        <country name="USA">
+            <publisher name="Sunset Books">
+                <genre name="Technology">
+                    <series title="Mastering Code">
+                        <book title="Mastering XML" isbn="1234567890">
+                            <chapter number="1" title="Introduction to XML">
+                                <section title="What is XML?">
+                                    <paragraph>XML stands for eXtensible Markup Language.</paragraph>
+                                    <paragraph>It is a markup language much like HTML but designed to store and transport data.</paragraph>
+                                </section>
+                                <section title="History of XML">
+                                    <paragraph>XML was developed by the W3C in 1996 and became a W3C Recommendation in 1998.</paragraph>
+                                </section>
+                            </chapter>
+                            <chapter number="2" title="Structure and Syntax">
+                                <section title="Tags and Elements">
+                                    <paragraph>XML documents are made up of elements, each with a start and end tag.</paragraph>
+                                </section>
+                            </chapter>
+                        </book>
+                        <book title="Mastering JSON" isbn="1234567891">
+                            <chapter number="1" title="JSON Overview">
+                                <section title="Basics of JSON">
+                                    <paragraph>JSON stands for JavaScript Object Notation and is a lightweight data format.</paragraph>
+                                </section>
+                            </chapter>
+                        </book>
+                    </series>
+                </genre>
+                <genre name="Fiction">
+                    <series title="Legends of the North">
+                        <book title="The Frozen Throne" isbn="9876543210">
+                            <chapter number="1" title="The Call of Winter">
+                                <section title="The Northern Wind">
+                                    <paragraph>The wind howled through the canyons as the night grew colder.</paragraph>
+                                </section>
+                            </chapter>
+                        </book>
+                    </series>
+                </genre>
+            </publisher>
+        </country>
+        <country name="Canada">
+            <publisher name="Maple Leaf Press">
+                <genre name="History">
+                    <series title="Foundations of Canada">
+                        <book title="Confederation and Beyond" isbn="1111222233">
+                            <chapter number="1" title="Pre-Confederation">
+                                <section title="The Colonies">
+                                    <paragraph>Before confederation, Canada was composed of British colonies with distinct identities.</paragraph>
+                                </section>
+                            </chapter>
+                        </book>
+                    </series>
+                </genre>
+            </publisher>
+        </country>
+    </region>
+    <region name="Europe">
+        <country name="Germany">
+            <publisher name="Berlin Books">
+                <genre name="Philosophy">
+                    <series title="Thought and Reason">
+                        <book title="The Logic of Being" isbn="3333444455">
+                            <chapter number="1" title="Ontology Basics">
+                                <section title="Being and Nothingness">
+                                    <paragraph>Existence precedes essence — a foundational concept in existentialism.</paragraph>
+                                </section>
+                            </chapter>
+                        </book>
+                    </series>
+                </genre>
+            </publisher>
+        </country>
+    </region>
+</publishing_catalog>

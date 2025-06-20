@@ -5,8 +5,9 @@ declare global {
   interface Window {
     api: {
       openFile: () => Promise<{ path: string; type: 'file' | 'folder' } | null>;
-      // Add this new line
       parseXML: (filePath: string) => Promise<{ status: 'success', data: any } | { status: 'error', message: string }>;
+      readFile: (filePath: string) => Promise<string | null>;
+      writeFile: (filePath: string, content: string) => Promise<{ status: 'success' } | { status: 'error', message: string }>;
     };
   }
 }
