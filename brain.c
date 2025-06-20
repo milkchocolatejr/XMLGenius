@@ -13,6 +13,10 @@ bool DEBUG = false;
 char badOpenTag[CSIZE];
 char badCloseTag[CSIZE];
 
+int validate(char*);
+int add(char*, char*, char*, char*);
+void help();
+
 void help(){
     if(DEBUG){
         printf("Help called!\n");
@@ -21,27 +25,76 @@ void help(){
     printf("help\nvalidate\n");
 }
 
-int add(char* myPath){
+int add(char* myPath, char* parentName, char* childName, char* value){
     if(DEBUG){
-        printf("Add called on: %s", myPath);
+        printf("Add called on: %s\n", myPath);
     }
 
     if(validate(myPath) == 0){
+        printf("Invalid XML. Cannot perform add operation.\n");
         return 0;
     }
 
-    int fd = open(myPath, O_RDONLY, 0644);
-
+    int fd = open(myPath, O_RDONLY);
     if(fd == -1){
         if(DEBUG){
-            printf("There was an error opening your file. \n");
-            printf("Most likely, your file does not exist.\n");
+            printf("There was an error opening your file.\n");
         }
-        
         return 0;
     }
 
+    char doc[SIZE_CAP] = {0};
+    int bytesRead = read(fd, doc, SIZE_CAP - 1);
+    close(fd);
+
+    if(bytesRead <= 0){
+        if(DEBUG){
+            printf("Error reading the file or file is empty.\n");
+        }
+        return 0;
+    }
+
+    char newDoc[SIZE_CAP] = {0};
+    char openTag[CSIZE];
+    snprintf(openTag, CSIZE, "<%s>", parentName);
+
+    char* insertPoint = strstr(doc, openTag);
+    if(!insertPoint){
+        if(DEBUG){
+            printf("Parent tag <%s> not found.\n", parentName);
+        }
+        return 0;
+    }
+
+    int prefixLen = insertPoint - doc + strlen(openTag);
+
+    char childEntry[CSIZE];
+    snprintf(childEntry, CSIZE, "\n    <%s>%s</%s>", childName, value, childName);
+
+    strncpy(newDoc, doc, prefixLen); 
+    newDoc[prefixLen] = '\0';
+    strcat(newDoc, childEntry); 
+    strcat(newDoc, insertPoint + strlen(openTag));
+
+    // Write back to file
+    fd = open(myPath, O_WRONLY | O_TRUNC);
+    if(fd == -1){
+        if(DEBUG){
+            printf("Failed to reopen the file for writing.\n");
+        }
+        return 0;
+    }
+
+    write(fd, newDoc, strlen(newDoc));
+    close(fd);
+
+    if(DEBUG){
+        printf("Child <%s> successfully added under <%s>\n", childName, parentName);
+    }
+
+    return 1;
 }
+
 
 int validate(char* myPath){
     if(DEBUG){
@@ -61,6 +114,7 @@ int validate(char* myPath){
     char doc[SIZE_CAP];
 
     read(fd, doc, SIZE_CAP);
+    close(fd);
 
     //Now, we need to start searching through.
     Stack s;
@@ -184,11 +238,11 @@ int main(int argc, char *argv[]){
         }
     }
     else if(strcmp(command, "add") == 0){
-        if(argc < 6){
+        if(argc < 8){
             printf("To add, please use: './brain.exe add -p <path> <parentName> <childName> -v <value>");
             return 2;
         }
-        int status = add(argv[3]);
+        int status = add(argv[3], argv[4], argv[5], argv[7]);
     }
 
     return 0;

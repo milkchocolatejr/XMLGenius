@@ -2,6 +2,10 @@ help: ./brain.c
 	make compile
 	./brain.exe help
 
+add: ./brain.c
+	make compile
+	./brain.exe add -p samples/valid.xml catalog notBook -v HelloWorld!
+
 invalidate: ./brain.c ./samples/invalid.xml
 	make compile
 	./brain.exe validate -p samples/invalid.xml
